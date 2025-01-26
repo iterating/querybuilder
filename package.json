@@ -11,7 +11,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "jest",
-    "vercel-build": "node src/server.js"
+    "build": "echo 'No build step required'"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.3",

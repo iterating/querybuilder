@@ -27,12 +27,12 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Health check endpoint for Vercel
+// Health check endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-// Only start server if not running on Vercel
+// Start server if not in production (Vercel handles this in production)
 if (process.env.NODE_ENV !== 'production') {
   const port = process.env.PORT || 3000;
   app.listen(port, () => {
@@ -40,4 +40,5 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
+// Export for Vercel
 export default app;
