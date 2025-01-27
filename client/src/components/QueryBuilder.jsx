@@ -5,7 +5,7 @@ export function QueryBuilder() {
   const [query, setQuery] = useState('');
   const [result, setResult] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const response = await fetch('/api/queries/execute', {

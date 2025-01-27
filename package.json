@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "dev": "pnpm run --parallel dev",
-    "build": "pnpm install && cd client && pnpm run build",
+    "build": "cd client && pnpm install && pnpm run build",
     "start": "pnpm run --parallel start",
     "lint": "pnpm run --parallel lint"
   },
