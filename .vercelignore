@@ -3,3 +3,10 @@
 .env.*
 node_modules
 *.log
+.gitignore
+README.md
+DEPLOYMENT.md
+jest.config.js
+__tests__
+*.test.js
+coverage

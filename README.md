@@ -1,4 +1,4 @@
-# Data Analytics Sandbox
+ww# Data Analytics Sandbox
 
 A secure and scalable platform that enables data analysts and developers to execute custom queries and build analytics tools, powered by Supabase.
 
@@ -88,6 +88,36 @@ A secure and scalable platform that enables data analysts and developers to exec
    ```bash
    pnpm dev
    ```
+
+## Deployment to Vercel
+
+1. Install Vercel CLI:
+```bash
+pnpm add -g vercel
+```
+
+2. Login to Vercel:
+```bash
+vercel login
+```
+
+3. Configure environment variables in Vercel:
+   - Go to your project settings in the Vercel dashboard
+   - Add the following environment variables:
+     - `SUPABASE_URL`
+     - `SUPABASE_ANON_KEY`
+     - `ALLOWED_ORIGINS`
+     - `NODE_ENV` (set to "production")
+
+4. Deploy to Vercel:
+```bash
+vercel
+```
+
+For production deployment:
+```bash
+vercel --prod
+```
 
 ## API Documentation
 

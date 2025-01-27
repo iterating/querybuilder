@@ -13,8 +13,47 @@ returns json
 language plpgsql
 security definer
 as $$
+declare
+  result json;
+  query_with_params text;
+  param_values text[];
+  i integer;
 begin
-  return query_text;
+  -- Prevent multiple statements
+  if position(';' in query_text) > 0 then
+    raise exception 'Multiple statements are not allowed';
+  end if;
+  
+  -- Prevent dangerous operations
+  if query_text ~* '\b(DROP|DELETE|TRUNCATE|ALTER|GRANT|REVOKE)\b' then
+    raise exception 'Operation not permitted';
+  end if;
+
+  -- Convert parameters array to text array
+  if json_array_length(query_params) > 0 then
+    param_values := array(
+      select json_array_elements_text(query_params)
+    );
+  end if;
+
+  -- Replace $1, $2, etc. with parameters
+  query_with_params := query_text;
+  for i in 1..coalesce(array_length(param_values, 1), 0) loop
+    query_with_params := replace(
+      query_with_params,
+      '$' || i::text,
+      quote_literal(param_values[i])
+    );
+  end loop;
+
+  -- Execute query with statement timeout
+  set local statement_timeout = '30s';
+  execute format('select row_to_json(t) from (%s) t', query_with_params) into result;
+  
+  return result;
+exception
+  when others then
+    return json_build_object('error', SQLERRM);
 end;
 $$;
 
@@ -81,6 +120,49 @@ create policy "Users can insert their own query history"
 
 4. Get your Supabase project URL and anon key from Project Settings > API
 
+## Environment Variables
+
+1. Copy `.env.example` to `.env`:
+```bash
+cp .env.example .env
+```
+
+2. Configure the following environment variables:
+
+### Required Variables
+- `SUPABASE_URL`: Your Supabase project URL
+- `SUPABASE_ANON_KEY`: Your Supabase anonymous key
+- `ALLOWED_ORIGINS`: Comma-separated list of allowed origins (e.g., `https://app.example.com,https://admin.example.com`)
+
+### Optional Variables
+- `PORT`: Server port (default: 3000)
+- `NODE_ENV`: Environment (development/production)
+- `RATE_LIMIT_WINDOW_MS`: Rate limit window in milliseconds
+- `RATE_LIMIT_MAX_REQUESTS`: Maximum requests per window
+
+## CORS Configuration
+
+The API implements a secure CORS policy that:
+1. Only allows requests from whitelisted origins
+2. Supports credentials for authenticated requests
+3. Exposes custom headers for token refresh
+4. Implements proper preflight handling
+
+To configure CORS:
+
+1. In development:
+   - `localhost:3000` and `localhost:5000` are automatically allowed
+   - Additional origins can be added via `ALLOWED_ORIGINS`
+
+2. In production:
+   - Set `ALLOWED_ORIGINS` to your frontend domain(s)
+   - Example: `ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com`
+
+3. Security considerations:
+   - Always use specific origins instead of wildcards
+   - Use HTTPS URLs in production
+   - Keep the list of allowed origins minimal
+
 ## Vercel Deployment
 
 1. Install Vercel CLI:
@@ -107,6 +189,7 @@ vercel link
   ```
   SUPABASE_URL=your_supabase_project_url
   SUPABASE_ANON_KEY=your_supabase_anon_key
+  ALLOWED_ORIGINS=your_allowed_origins
   NODE_ENV=production
   ```
 
