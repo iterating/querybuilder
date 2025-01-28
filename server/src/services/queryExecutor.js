@@ -2,37 +2,16 @@ import { logger } from '../utils/logger.js';
 import DatabaseService from './database.js';
 
 class QueryExecutor {
-  static async executeSupabaseQuery(client, query, tableName) {
-    if (query.trim().toLowerCase().startsWith('select')) {
-      // For SELECT queries, use Supabase's query builder
-      const { data, error } = await client
-        .from(tableName)
-        .select(query.replace(/^select\s+/i, '').split('from')[0].trim());
-      if (error) throw error;
-      return data;
-    } else {
-      // For other queries, use RPC if available
-      const { data, error } = await client.rpc('execute_raw_query', { query_text: query });
-      if (error) throw error;
-      return data;
-    }
-  }
-
-  static async executeMongoQuery(client, query, tableName) {
+  static async executeMongoQuery(client, query) {
     const db = client.db();
-    const collection = db.collection(tableName);
-
+    
     try {
       if (typeof query === 'string') {
-        if (query.startsWith('db.')) {
-          const command = eval(`(${query.replace('db.', '').replace('.find', '')})`);
-          return await collection.find(command).toArray();
-        } else {
-          const parsedQuery = JSON.parse(query.replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3'));
-          return await collection.find(parsedQuery).toArray();
-        }
+        // Parse the query string into a MongoDB command
+        const command = eval(`(${query})`);
+        return await db.command(command);
       } else {
-        return await collection.find(query).toArray();
+        throw new Error('Query must be a string');
       }
     } catch (e) {
       logger.error('MongoDB query parsing error:', e);
@@ -51,35 +30,59 @@ class QueryExecutor {
   }
 
   static async executeQuery(dbConfig, query) {
-    const { type, url, apiKey, tableName } = dbConfig;
+    const { type, url } = dbConfig;
+    
+    if (!type || !url) {
+      throw new Error('Database configuration is incomplete');
+    }
 
+    let client;
     try {
+      client = await DatabaseService.getClient(type, url);
+      
+      let result;
       switch (type) {
-        case 'supabase': {
-          const client = DatabaseService.getSupabaseClient(url, apiKey);
-          return await this.executeSupabaseQuery(client, query, tableName);
-        }
-
-        case 'mongodb': {
-          const client = await DatabaseService.getMongoClient(url);
-          return await this.executeMongoQuery(client, query, tableName);
-        }
-
-        case 'mysql': {
-          const client = await DatabaseService.getMySQLClient(url);
-          return await this.executeMySQLQuery(client, query);
-        }
-
-        case 'postgres': {
-          const client = await DatabaseService.getPostgresClient(url);
-          return await this.executePostgresQuery(client, query);
-        }
-
+        case 'mongodb':
+          result = await this.executeMongoQuery(client, query);
+          break;
+        case 'mysql':
+          result = await this.executeMySQLQuery(client, query);
+          break;
+        case 'postgres':
+          result = await this.executePostgresQuery(client, query);
+          break;
         default:
           throw new Error(`Unsupported database type: ${type}`);
       }
+
+      return result;
     } catch (error) {
-      logger.error(`Database query error (${type}):`, error);
+      logger.error(`Query execution error: ${error.message}`, {
+        type,
+        query,
+        error: error.stack
+      });
+      throw error;
+    } finally {
+      if (client) {
+        await DatabaseService.releaseClient(client);
+      }
+    }
+  }
+
+  static async getQueryHistory(userId) {
+    try {
+      const client = await DatabaseService.getClient('postgres', process.env.DATABASE_URL);
+      const result = await client.query(
+        'SELECT * FROM query_history WHERE user_id = $1 ORDER BY created_at DESC',
+        [userId]
+      );
+      return result.rows;
+    } catch (error) {
+      logger.error(`Failed to get query history: ${error.message}`, {
+        userId,
+        error: error.stack
+      });
       throw error;
     }
   }

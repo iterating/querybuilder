@@ -1,76 +1,44 @@
 import React, { useState } from 'react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import CodeEditor from '@uiw/react-textarea-code-editor';
 import { DatabaseConfig } from './DatabaseConfig';
 import { DataVisualizer } from './DataVisualizer';
-import { QueryHistory } from './QueryHistory';
-import { supabase } from '../lib/supabaseClient';
-import { Save } from 'lucide-react';
-import { cn } from '../lib/utils';
-import CodeEditor from '@uiw/react-textarea-code-editor';
-
-// Get the API URL from environment or default to relative path
-const API_URL = import.meta.env.VITE_API_URL || '';
-
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000; // 1 second
-
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+import { Button } from './ui/button';
+import { PlayIcon, SaveIcon, HistoryIcon, BookTemplate, PencilIcon, PlusIcon } from 'lucide-react';
+import { DEFAULT_TEMPLATES } from '../lib/defaultTemplates';
+import { TemplateDialog } from './TemplateDialog';
 
 export function QueryBuilder() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState(null);
-  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [queryName, setQueryName] = useState('');
+  const [error, setError] = useState(null);
   const [dbConfig, setDbConfig] = useState({
-    type: 'supabase',
-    url: '',
-    apiKey: '',
-    tableName: ''
+    type: 'postgres',
+    url: ''
   });
+  const [templates, setTemplates] = useState(DEFAULT_TEMPLATES);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+  const [templateDialogMode, setTemplateDialogMode] = useState('edit');
 
-  const executeQuery = async (retryCount = 0) => {
+  const handleQuerySubmit = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch(`${API_URL}/api/queries/execute`, {
+      const response = await fetch('/api/query', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          query,
-          dbConfig
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, config: dbConfig })
       });
       
       if (!response.ok) {
-        let errorMessage;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData?.error || `HTTP error! status: ${response.status}`;
-          if (errorData?.details) {
-            console.error('Error details:', errorData.details);
-          }
-        } catch {
-          errorMessage = `HTTP error! status: ${response.status}`;
-        }
-        throw new Error(errorMessage);
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to execute query');
       }
       
       const data = await response.json();
-      setResults(data.data);
+      setResults(data);
     } catch (err) {
-      if (retryCount < MAX_RETRIES && (err.message.includes('fetch failed') || err.message.includes('network'))) {
-        console.log(`Retrying... Attempt ${retryCount + 1} of ${MAX_RETRIES}`);
-        await sleep(RETRY_DELAY * (retryCount + 1));
-        return executeQuery(retryCount + 1);
-      }
       setError(err.message);
       setResults(null);
     } finally {
@@ -78,122 +46,199 @@ export function QueryBuilder() {
     }
   };
 
-  const saveQuery = async () => {
-    try {
-      const { error } = await supabase
-        .from('query_history')
-        .insert([
-          {
-            name: queryName || 'Unnamed Query',
-            query,
-            database_type: dbConfig.type
-          }
-        ]);
+  const handleTemplateSelect = (template) => {
+    setQuery(template.query);
+  };
 
-      if (error) throw error;
-      setShowSaveDialog(false);
-      setQueryName('');
-      // You could add a toast notification here
+  const handleEditTemplate = (template) => {
+    setSelectedTemplate(template);
+    setTemplateDialogMode('edit');
+    setIsTemplateDialogOpen(true);
+  };
+
+  const handleCreateTemplate = () => {
+    setSelectedTemplate({
+      id: `template_${Date.now()}`,
+      name: '',
+      description: '',
+      query: query || '',
+      category: 'Custom',
+      database_type: dbConfig.type,
+      is_public: false
+    });
+    setTemplateDialogMode('create');
+    setIsTemplateDialogOpen(true);
+  };
+
+  const handleSaveTemplate = async (editedTemplate) => {
+    try {
+      // In a real app, you would save this to your backend
+      if (templateDialogMode === 'create') {
+        setTemplates(prev => [...prev, editedTemplate]);
+      } else {
+        setTemplates(prev => 
+          prev.map(t => t.id === editedTemplate.id ? editedTemplate : t)
+        );
+      }
     } catch (err) {
-      console.error('Error saving query:', err);
-      setError(err.message);
+      console.error('Failed to save template:', err);
     }
   };
 
-  const handleSelectQuery = (selectedQuery) => {
-    setQuery(selectedQuery);
-  };
+  const filteredTemplates = templates.filter(
+    template => template.database_type === dbConfig.type
+  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-900 to-zinc-950">
-      <div className="container mx-auto p-6 space-y-8">
-        <div className="bg-zinc-800/50 rounded-lg shadow-xl p-6 backdrop-blur-sm">
-          <DatabaseConfig onConfigChange={setDbConfig} />
-        </div>
+    <div className="min-h-screen bg-zinc-900 text-zinc-100">
+      <div className="container mx-auto px-4 py-8">
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+            Query Builder
+          </h1>
+          <p className="text-zinc-400 mt-2">
+            Build and execute database queries with ease
+          </p>
+        </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between bg-zinc-800/50 rounded-lg p-4 backdrop-blur-sm">
-              <h2 className="text-xl font-semibold text-zinc-100">Query Editor</h2>
-              <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="hover:bg-zinc-700/50">
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Query
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-zinc-900 border-zinc-800">
-                  <DialogHeader>
-                    <DialogTitle className="text-zinc-100">Save Query</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 pt-4">
-                    <Input
-                      placeholder="Query name"
-                      value={queryName}
-                      onChange={(e) => setQueryName(e.target.value)}
-                      className="bg-zinc-800 border-zinc-700 text-zinc-100"
-                    />
-                    <Button onClick={saveQuery} className="w-full bg-green-600 hover:bg-green-700">Save</Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="space-y-6">
+            <div className="bg-zinc-800 rounded-lg p-6 shadow-lg">
+              <h2 className="text-xl font-semibold mb-4 flex items-center">
+                <span className="w-2 h-6 bg-blue-500 rounded mr-2"></span>
+                Database Connection
+              </h2>
+              <DatabaseConfig config={dbConfig} onChange={setDbConfig} />
             </div>
 
-            <div className="bg-zinc-800/50 rounded-lg p-4 backdrop-blur-sm">
-              <CodeEditor
-                value={query}
-                language="sql"
-                placeholder="Enter your SQL query..."
-                onChange={(e) => setQuery(e.target.value)}
-                padding={15}
-                style={{
-                  fontSize: '0.875rem',
-                  backgroundColor: 'rgb(24 24 27)',
-                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                  borderRadius: '0.375rem',
-                  minHeight: '200px',
-                }}
-                className={cn(
-                  "min-h-[200px] w-full",
-                  "text-green-400 placeholder-green-700",
-                  "border border-zinc-700 focus:border-green-700",
-                  "focus:ring-1 focus:ring-green-500 focus:outline-none"
-                )}
-              />
+            <div className="bg-zinc-800 rounded-lg p-6 shadow-lg">
+              <h2 className="text-xl font-semibold mb-4 flex items-center">
+                <span className="w-2 h-6 bg-purple-500 rounded mr-2"></span>
+                Query Editor
+              </h2>
+              <div className="relative">
+                <CodeEditor
+                  value={query}
+                  language="sql"
+                  onChange={(e) => setQuery(e.target.value)}
+                  padding={16}
+                  style={{
+                    fontSize: '14px',
+                    backgroundColor: '#27272a',
+                    fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Consolas,Liberation Mono,Menlo,monospace',
+                    borderRadius: '0.5rem',
+                    minHeight: '200px'
+                  }}
+                  className="focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+                <div className="absolute bottom-4 right-4 flex space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {}}
+                    className="text-zinc-400 hover:text-zinc-100"
+                  >
+                    <HistoryIcon className="w-4 h-4 mr-1" />
+                    History
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {}}
+                    className="text-zinc-400 hover:text-zinc-100"
+                  >
+                    <SaveIcon className="w-4 h-4 mr-1" />
+                    Save
+                  </Button>
+                  <Button
+                    onClick={handleQuerySubmit}
+                    disabled={loading || !query.trim()}
+                    className="bg-purple-500 hover:bg-purple-600 text-white"
+                    size="sm"
+                  >
+                    <PlayIcon className="w-4 h-4 mr-1" />
+                    {loading ? 'Running...' : 'Run Query'}
+                  </Button>
+                </div>
+              </div>
+            </div>
 
-              <div className="mt-4 flex justify-end space-x-3">
-                <Button 
-                  onClick={executeQuery}
-                  disabled={loading || !query.trim() || !dbConfig.url}
-                  className="bg-green-600 hover:bg-green-700 text-white"
+            <div className="bg-zinc-800 rounded-lg p-6 shadow-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold flex items-center">
+                  <span className="w-2 h-6 bg-yellow-500 rounded mr-2"></span>
+                  Query Templates
+                  <BookTemplate className="w-5 h-5 ml-2 text-yellow-500" />
+                </h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCreateTemplate}
+                  className="text-zinc-400 hover:text-zinc-100"
                 >
-                  {loading ? 'Executing...' : 'Execute Query'}
+                  <PlusIcon className="w-4 h-4 mr-1" />
+                  New Template
                 </Button>
               </div>
-            </div>
-
-            {error && (
-              <div className="bg-red-900/50 text-red-200 p-4 rounded-lg backdrop-blur-sm">
-                <p className="font-mono text-sm">{error}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredTemplates.map((template) => (
+                  <div
+                    key={template.id}
+                    className="p-4 bg-zinc-900/50 rounded-lg group relative"
+                  >
+                    <button
+                      onClick={() => handleTemplateSelect(template)}
+                      className="text-left w-full"
+                    >
+                      <h3 className="font-medium text-zinc-100 group-hover:text-white">
+                        {template.name}
+                      </h3>
+                      <p className="text-sm text-zinc-400 mt-1 group-hover:text-zinc-300">
+                        {template.description}
+                      </p>
+                      <span className="inline-block px-2 py-1 bg-zinc-800 rounded text-xs text-zinc-400 mt-2">
+                        {template.category}
+                      </span>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditTemplate(template);
+                      }}
+                      className="absolute top-2 right-2 p-1 text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <PencilIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="bg-zinc-800/50 rounded-lg p-4 backdrop-blur-sm">
-              <h2 className="text-xl font-semibold text-zinc-100 mb-4">Query History & Templates</h2>
-              <QueryHistory onSelectQuery={handleSelectQuery} />
-            </div>
-
-            {results && (
-              <div className="bg-zinc-800/50 rounded-lg p-4 backdrop-blur-sm">
-                <h2 className="text-xl font-semibold text-zinc-100 mb-4">Results</h2>
-                <DataVisualizer data={results} />
+          <div className="bg-zinc-800 rounded-lg p-6 shadow-lg">
+            <h2 className="text-xl font-semibold mb-4 flex items-center">
+              <span className="w-2 h-6 bg-green-500 rounded mr-2"></span>
+              Results
+            </h2>
+            {error ? (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-400">
+                <p className="font-medium">Error</p>
+                <p className="text-sm mt-1">{error}</p>
               </div>
+            ) : (
+              <DataVisualizer data={results} loading={loading} />
             )}
           </div>
         </div>
       </div>
+
+      <TemplateDialog
+        isOpen={isTemplateDialogOpen}
+        onClose={() => setIsTemplateDialogOpen(false)}
+        template={selectedTemplate}
+        onSave={handleSaveTemplate}
+        mode={templateDialogMode}
+      />
     </div>
   );
 }

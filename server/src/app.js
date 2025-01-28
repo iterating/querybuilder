@@ -5,7 +5,6 @@ import { logger } from './utils/logger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import queryRoutes from './routes/queryRoutes.js';
 import historyRoutes from './routes/historyRoutes.js';
-import templateRoutes from './routes/templateRoutes.js';
 import healthRoutes from './routes/healthRoutes.js';
 
 const app = express();
@@ -27,7 +26,6 @@ app.use((req, res, next) => {
 // Routes
 app.use('/api/queries', queryRoutes);
 app.use('/api/history', historyRoutes);
-app.use('/api/templates', templateRoutes);
 app.use('/health', healthRoutes);
 
 // 404 handler

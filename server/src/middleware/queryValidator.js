@@ -3,6 +3,14 @@ import Joi from 'joi';
 const MAX_QUERY_LENGTH = 10000; // 10KB limit
 const MAX_PARAMS = 100;
 
+const dbConfigSchema = Joi.object({
+  type: Joi.string()
+    .valid('supabase', 'mongodb', 'mysql', 'postgres')
+    .required(),
+  url: Joi.string()
+    .required()
+});
+
 const querySchema = Joi.object({
   query: Joi.string()
     .max(MAX_QUERY_LENGTH)
@@ -13,7 +21,7 @@ const querySchema = Joi.object({
         return helpers.error('string.multipleStatements');
       }
       // Prevent dangerous operations
-      const dangerous = /\b(DROP|DELETE|TRUNCATE|ALTER|GRANTw|REVOKE)\b/i;
+      const dangerous = /\b(DROP|DELETE|TRUNCATE|ALTER|GRANT|REVOKE)\b/i;
       if (dangerous.test(value)) {
         return helpers.error('string.dangerousOperation');
       }
@@ -27,7 +35,8 @@ const querySchema = Joi.object({
       Joi.date()
     ))
     .max(MAX_PARAMS)
-    .default([])
+    .default([]),
+  dbConfig: dbConfigSchema.required()
 });
 
 export const validateQuery = async (req, res, next) => {
@@ -37,7 +46,7 @@ export const validateQuery = async (req, res, next) => {
     next();
   } catch (error) {
     res.status(400).json({
-      error: 'Invalid query',
+      error: 'Invalid request',
       details: error.details?.[0]?.message
     });
   }

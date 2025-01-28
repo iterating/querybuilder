@@ -1,262 +1,136 @@
 import React, { useState } from 'react';
 import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend
-} from 'recharts';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from './ui/table';
 import { Button } from './ui/button';
-import { Select } from './ui/select';
-import DataTable from './DataTable';
-import { exportData } from '../utils/exportUtils';
+import { TableIcon, BarChartIcon, Loader2Icon } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 
-export function DataVisualizer({ data }) {
-  const [visualizationType, setVisualizationType] = useState('table');
-  const [chartConfig, setChartConfig] = useState({
-    xAxis: '',
-    yAxis: '',
-  });
+export function DataVisualizer({ data, loading }) {
+  const [view, setView] = useState('table');
+  
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2Icon className="w-8 h-8 text-purple-500 animate-spin" />
+      </div>
+    );
+  }
 
-  // Get all possible columns from the data
-  const columns = data && data.length > 0 
-    ? Object.keys(data[0])
-    : [];
+  if (!data) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-zinc-400">
+        <TableIcon className="w-12 h-12 mb-4 opacity-50" />
+        <p className="text-sm">Run a query to see results</p>
+      </div>
+    );
+  }
 
-  const handleExport = (format) => {
-    try {
-      exportData(data, format);
-    } catch (error) {
-      console.error('Export failed:', error);
-    }
-  };
+  const headers = Object.keys(data[0] || {});
+  const numericColumns = headers.filter(header => 
+    data.every(row => typeof row[header] === 'number')
+  );
 
-  const renderVisualization = () => {
-    if (!data || data.length === 0) {
-      return (
-        <div className="flex items-center justify-center h-40 text-zinc-500">
-          <p>No data to visualize</p>
-        </div>
-      );
-    }
-
-    switch (visualizationType) {
-      case 'table':
-        return <DataTable data={data} />;
-
-      case 'line':
-        return (
-          <div className="overflow-x-auto">
-            <LineChart 
-              width={600} 
-              height={400} 
-              data={data}
-              className="mx-auto"
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis 
-                dataKey={chartConfig.xAxis} 
-                stroke="#9CA3AF"
-                tick={{ fill: '#9CA3AF' }}
-              />
-              <YAxis 
-                stroke="#9CA3AF"
-                tick={{ fill: '#9CA3AF' }}
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#18181B',
-                  border: '1px solid #3F3F46',
-                  borderRadius: '6px'
-                }}
-                labelStyle={{ color: '#D4D4D8' }}
-              />
-              <Legend 
-                wrapperStyle={{ 
-                  paddingTop: '20px',
-                  color: '#D4D4D8'
-                }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey={chartConfig.yAxis} 
-                stroke="#22C55E"
-                strokeWidth={2}
-              />
-            </LineChart>
-          </div>
-        );
-
-      case 'bar':
-        return (
-          <div className="overflow-x-auto">
-            <BarChart 
-              width={600} 
-              height={400} 
-              data={data}
-              className="mx-auto"
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis 
-                dataKey={chartConfig.xAxis} 
-                stroke="#9CA3AF"
-                tick={{ fill: '#9CA3AF' }}
-              />
-              <YAxis 
-                stroke="#9CA3AF"
-                tick={{ fill: '#9CA3AF' }}
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#18181B',
-                  border: '1px solid #3F3F46',
-                  borderRadius: '6px'
-                }}
-                labelStyle={{ color: '#D4D4D8' }}
-              />
-              <Legend 
-                wrapperStyle={{ 
-                  paddingTop: '20px',
-                  color: '#D4D4D8'
-                }}
-              />
-              <Bar 
-                dataKey={chartConfig.yAxis} 
-                fill="#22C55E"
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </div>
-        );
-
-      case 'pie':
-        return (
-          <div className="overflow-x-auto">
-            <PieChart 
-              width={600} 
-              height={400}
-              className="mx-auto"
-            >
-              <Pie
-                data={data}
-                dataKey={chartConfig.yAxis}
-                nameKey={chartConfig.xAxis}
-                cx="50%"
-                cy="50%"
-                outerRadius={150}
-                fill="#22C55E"
-                label
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#18181B',
-                  border: '1px solid #3F3F46',
-                  borderRadius: '6px'
-                }}
-                labelStyle={{ color: '#D4D4D8' }}
-              />
-              <Legend 
-                wrapperStyle={{ 
-                  paddingTop: '20px',
-                  color: '#D4D4D8'
-                }}
-              />
-            </PieChart>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
+  const chartData = data.map((row, index) => ({
+    name: index + 1,
+    ...row
+  }));
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-sm font-medium text-zinc-300 mb-2">
-            Visualization Type
-          </label>
-          <Select
-            value={visualizationType}
-            onChange={(e) => setVisualizationType(e.target.value)}
-            className="w-full bg-zinc-900 border-zinc-700 text-zinc-100"
-          >
-            <option value="table" className="bg-zinc-900">Table</option>
-            <option value="line" className="bg-zinc-900">Line Chart</option>
-            <option value="bar" className="bg-zinc-900">Bar Chart</option>
-            <option value="pie" className="bg-zinc-900">Pie Chart</option>
-          </Select>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-zinc-400">
+          {data.length} {data.length === 1 ? 'row' : 'rows'}
         </div>
-
-        {visualizationType !== 'table' && (
-          <>
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
-                X Axis
-              </label>
-              <Select
-                value={chartConfig.xAxis}
-                onChange={(e) => setChartConfig({ ...chartConfig, xAxis: e.target.value })}
-                className="w-full bg-zinc-900 border-zinc-700 text-zinc-100"
-              >
-                <option value="" className="bg-zinc-900">Select column</option>
-                {columns.map(col => (
-                  <option key={col} value={col} className="bg-zinc-900">{col}</option>
-                ))}
-              </Select>
-            </div>
-
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
-                Y Axis
-              </label>
-              <Select
-                value={chartConfig.yAxis}
-                onChange={(e) => setChartConfig({ ...chartConfig, yAxis: e.target.value })}
-                className="w-full bg-zinc-900 border-zinc-700 text-zinc-100"
-              >
-                <option value="" className="bg-zinc-900">Select column</option>
-                {columns.map(col => (
-                  <option key={col} value={col} className="bg-zinc-900">{col}</option>
-                ))}
-              </Select>
-            </div>
-          </>
-        )}
-
-        <div className="flex-none pt-8 space-x-2">
+        <div className="flex space-x-2">
           <Button
-            variant="outline"
-            onClick={() => handleExport('csv')}
-            className="hover:bg-zinc-700/50"
+            variant={view === 'table' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setView('table')}
+            className="text-zinc-400 hover:text-zinc-100"
           >
-            Export CSV
+            <TableIcon className="w-4 h-4 mr-1" />
+            Table
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => handleExport('json')}
-            className="hover:bg-zinc-700/50"
-          >
-            Export JSON
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => handleExport('hl7')}
-            className="hover:bg-zinc-700/50"
-          >
-            Export HL7
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => handleExport('fhir')}
-            className="hover:bg-zinc-700/50"
-          >
-            Export FHIR
-          </Button>
+          {numericColumns.length > 0 && (
+            <Button
+              variant={view === 'chart' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setView('chart')}
+              className="text-zinc-400 hover:text-zinc-100"
+            >
+              <BarChartIcon className="w-4 h-4 mr-1" />
+              Chart
+            </Button>
+          )}
         </div>
       </div>
 
-      <div className="bg-zinc-900/50 rounded-lg p-4">
-        {renderVisualization()}
-      </div>
+      {view === 'table' ? (
+        <div className="rounded-lg border border-zinc-700 overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {headers.map((header) => (
+                    <TableHead key={header} className="bg-zinc-800/50">
+                      {header}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.map((row, i) => (
+                  <TableRow key={i}>
+                    {headers.map((header) => (
+                      <TableCell key={header} className="truncate max-w-[200px]">
+                        {row[header]?.toString() || ''}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      ) : (
+        <div className="h-[400px] bg-zinc-800/50 rounded-lg p-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+              <XAxis dataKey="name" stroke="#888" />
+              <YAxis stroke="#888" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#27272a',
+                  border: '1px solid #3f3f46',
+                  borderRadius: '0.5rem',
+                }}
+              />
+              {numericColumns.map((column, index) => (
+                <Bar
+                  key={column}
+                  dataKey={column}
+                  fill={`hsl(${(index * 60 + 200) % 360}, 70%, 60%)`}
+                />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 }
