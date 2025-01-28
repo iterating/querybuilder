@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Button } from './ui/button';
-import { Textarea } from './ui/textarea';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { DatabaseConfig } from './DatabaseConfig';
@@ -9,6 +8,7 @@ import { QueryHistory } from './QueryHistory';
 import { supabase } from '../lib/supabaseClient';
 import { Save } from 'lucide-react';
 import { cn } from '../lib/utils';
+import CodeEditor from '@uiw/react-textarea-code-editor';
 
 // Get the API URL from environment or default to relative path
 const API_URL = import.meta.env.VITE_API_URL || '';
@@ -140,15 +140,24 @@ export function QueryBuilder() {
             </div>
 
             <div className="bg-zinc-800/50 rounded-lg p-4 backdrop-blur-sm">
-              <Textarea
+              <CodeEditor
                 value={query}
+                language="sql"
+                placeholder="Enter your SQL query..."
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Enter your query..."
+                padding={15}
+                style={{
+                  fontSize: '0.875rem',
+                  backgroundColor: 'rgb(24 24 27)',
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                  borderRadius: '0.375rem',
+                  minHeight: '200px',
+                }}
                 className={cn(
-                  "min-h-[200px]",
-                  "bg-zinc-900 text-green-400 placeholder-green-700",
-                  "border-zinc-700 focus-visible:border-green-700",
-                  "focus-visible:ring-green-500"
+                  "min-h-[200px] w-full",
+                  "text-green-400 placeholder-green-700",
+                  "border border-zinc-700 focus:border-green-700",
+                  "focus:ring-1 focus:ring-green-500 focus:outline-none"
                 )}
               />
 
