@@ -17,7 +17,10 @@
     "express-rate-limit": "^6.9.0",
     "glob": "^10.3.3",
     "joi": "^17.9.2",
-    "winston": "^3.10.0"
+    "winston": "^3.10.0",
+    "mongodb": "^6.3.0",
+    "mysql2": "^3.7.0",
+    "pg": "^8.11.3"
   },
   "devDependencies": {
     "eslint": "^8.45.0",
