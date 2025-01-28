@@ -7,7 +7,7 @@ import { corsMiddleware } from './middleware/cors.js';
 import { logger } from './utils/logger.js';
 
 // Validate required environment variables
-const requiredEnvVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY'];
+const requiredEnvVars = ['SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'];
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
 
 if (missingEnvVars.length > 0) {
@@ -51,7 +51,7 @@ app.use(corsMiddleware);
 // Health check endpoint (before other routes)
 app.get('/health', (req, res) => {
   // Check Supabase connection
-  const supabaseAvailable = process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY;
+  const supabaseAvailable = process.env.SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   
   res.status(200).json({ 
     status: 'ok',

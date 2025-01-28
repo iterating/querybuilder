@@ -76,7 +76,7 @@ A secure and scalable platform that enables data analysts and developers to exec
    ```
    PORT=3000
    SUPABASE_URL=your_supabase_project_url
-   SUPABASE_ANON_KEY=your_supabase_anon_key
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
 
 5. Start the server:
@@ -105,7 +105,7 @@ vercel login
    - Go to your project settings in the Vercel dashboard
    - Add the following environment variables:
      - `SUPABASE_URL`
-     - `SUPABASE_ANON_KEY`
+     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
      - `ALLOWED_ORIGINS`
      - `NODE_ENV` (set to "production")
 

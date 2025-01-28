@@ -131,7 +131,7 @@ cp .env.example .env
 
 ### Required Variables
 - `SUPABASE_URL`: Your Supabase project URL
-- `SUPABASE_ANON_KEY`: Your Supabase anonymous key
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anonymous key
 - `ALLOWED_ORIGINS`: Comma-separated list of allowed origins (e.g., `https://app.example.com,https://admin.example.com`)
 
 ### Optional Variables
@@ -188,7 +188,7 @@ vercel link
 - Add the following environment variables:
   ```
   SUPABASE_URL=your_supabase_project_url
-  SUPABASE_ANON_KEY=your_supabase_anon_key
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
   ALLOWED_ORIGINS=your_allowed_origins
   NODE_ENV=production
   ```
