@@ -3,15 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "client",
-    "server"
-  ],
   "scripts": {
-    "dev": "pnpm run --parallel dev",
-    "build": "cd client && pnpm install && pnpm run build",
-    "start": "pnpm run --parallel start",
-    "lint": "pnpm run --parallel lint"
+    "preinstall": "npx only-allow pnpm",
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "start": "node server/dist/server.js",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "turbo": "^1.11.3"
   },
   "engines": {
     "node": ">=18.0.0",
