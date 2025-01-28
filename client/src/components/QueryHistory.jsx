@@ -122,11 +122,12 @@ export function QueryHistory({ onSelectQuery }) {
           placeholder="Search queries..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1"
+          className="flex-1 bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
         />
         <Button
           variant="outline"
           onClick={() => setShowTemplates(!showTemplates)}
+          className="border-zinc-700 text-zinc-100 hover:bg-zinc-800"
         >
           {showTemplates ? 'Show History' : 'Show Templates'}
         </Button>
@@ -136,49 +137,54 @@ export function QueryHistory({ onSelectQuery }) {
         {filteredItems.map((item) => (
           <div
             key={item.id}
-            className="p-4 border rounded-lg hover:bg-muted flex items-center justify-between"
+            className="p-4 bg-zinc-800/50 border border-zinc-700 rounded-lg hover:bg-zinc-800 transition-colors"
           >
-            <div className="flex-1">
-              <h3 className="font-medium">{item.name}</h3>
-              <p className="text-sm text-muted-foreground truncate">
-                {item.query}
-              </p>
-              {item.description && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  {item.description}
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-zinc-100">{item.name}</h3>
+                <p className="text-sm text-zinc-400 whitespace-pre-wrap break-words">
+                  {item.query}
                 </p>
-              )}
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onSelectQuery(item.query)}
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-              {!showTemplates && (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleFavorite(item.id, item.is_favorite)}
-                  >
-                    {item.is_favorite ? (
-                      <Star className="h-4 w-4 fill-yellow-400" />
-                    ) : (
-                      <StarOff className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => shareQuery(item.id)}
-                  >
-                    <Share2 className="h-4 w-4" />
-                  </Button>
-                </>
-              )}
+                {item.description && (
+                  <p className="text-sm text-zinc-500 mt-1 whitespace-pre-wrap break-words">
+                    {item.description}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-shrink-0 items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onSelectQuery(item.query)}
+                  className="text-zinc-100 hover:bg-zinc-700"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+                {!showTemplates && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleFavorite(item.id, item.is_favorite)}
+                      className="text-zinc-100 hover:bg-zinc-700"
+                    >
+                      {item.is_favorite ? (
+                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      ) : (
+                        <StarOff className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => shareQuery(item.id)}
+                      className="text-zinc-100 hover:bg-zinc-700"
+                    >
+                      <Share2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         ))}
