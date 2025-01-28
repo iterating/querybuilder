@@ -9,18 +9,33 @@ import healthRoutes from './routes/healthRoutes.js';
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// Detailed CORS configuration
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
 app.use(express.json());
 
 // Request logging
 app.use((req, res, next) => {
   const start = Date.now();
+  logger.info(`Incoming request: ${req.method} ${req.path}`);
+  logger.info(`Headers: ${JSON.stringify(req.headers)}`);
+  
   res.on('finish', () => {
     const duration = Date.now() - start;
     logger.info(`${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
   });
   next();
+});
+
+// Test endpoint
+app.get('/api/test', (req, res) => {
+  logger.info('Test endpoint hit!');
+  res.json({ message: 'API is working!' });
 });
 
 // Routes

@@ -25,20 +25,48 @@ export function QueryBuilder() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/query', {
+      // Test API connection first
+      console.log('Testing API connection...');
+      const testResponse = await fetch('/api/test', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log('Test response status:', testResponse.status);
+      if (!testResponse.ok) {
+        const errorText = await testResponse.text();
+        console.error('Test response error:', errorText);
+        throw new Error(`Could not connect to API server (${testResponse.status}): ${errorText}`);
+      }
+      
+      const testData = await testResponse.json();
+      console.log('API test response:', testData);
+
+      console.log('Executing query...');
+      const response = await fetch('/api/queries/execute', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ query, config: dbConfig })
       });
       
+      console.log('Query response status:', response.status);
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to execute query');
+        console.error('Query response error:', errorData);
+        throw new Error(errorData.message || `Failed to execute query (${response.status})`);
       }
       
       const data = await response.json();
+      console.log('Query response data:', data);
       setResults(data);
     } catch (err) {
+      console.error('Query error:', err);
       setError(err.message);
       setResults(null);
     } finally {

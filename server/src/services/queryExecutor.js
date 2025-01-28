@@ -1,12 +1,53 @@
 import { logger } from '../utils/logger.js';
 import DatabaseService from './database.js';
 
+const SANDBOX_MODE = true; // Enable sandbox mode by default
+
+// List of dangerous keywords that could modify data
+const DANGEROUS_KEYWORDS = [
+  'insert',
+  'update',
+  'delete',
+  'drop',
+  'truncate',
+  'alter',
+  'create',
+  'replace',
+  'rename',
+  'restore',
+  'grant',
+  'revoke'
+];
+
 class QueryExecutor {
+  static validateQuery(query) {
+    if (SANDBOX_MODE) {
+      const lowerQuery = query.toLowerCase();
+      const dangerousOperation = DANGEROUS_KEYWORDS.some(keyword => 
+        lowerQuery.includes(keyword)
+      );
+      
+      if (dangerousOperation) {
+        throw new Error('Write operations are not allowed in sandbox mode. Only SELECT queries are permitted.');
+      }
+
+      if (!lowerQuery.trim().startsWith('select')) {
+        throw new Error('Only SELECT queries are allowed in sandbox mode.');
+      }
+    }
+  }
+
   static async executeMongoQuery(client, query) {
     const db = client.db();
     
     try {
       if (typeof query === 'string') {
+        if (SANDBOX_MODE) {
+          // In MongoDB, only allow find operations
+          if (!query.includes('find') && !query.includes('aggregate')) {
+            throw new Error('Only find and aggregate operations are allowed in sandbox mode.');
+          }
+        }
         // Parse the query string into a MongoDB command
         const command = eval(`(${query})`);
         return await db.command(command);
@@ -20,11 +61,13 @@ class QueryExecutor {
   }
 
   static async executeMySQLQuery(client, query) {
+    this.validateQuery(query);
     const [rows] = await client.execute(query);
     return rows;
   }
 
   static async executePostgresQuery(client, query) {
+    this.validateQuery(query);
     const result = await client.query(query);
     return result.rows;
   }
