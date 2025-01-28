@@ -6,12 +6,45 @@ import { MongoClient } from 'mongodb';
 import mysql from 'mysql2/promise';
 import pg from 'pg';
 import { logger } from './utils/logger.js';
+import fetch from 'node-fetch';
 
 const app = express();
 
+// CORS configuration
+const corsOptions = {
+  origin: function(origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'https://querybuilder-gtw9jajgf-iterating.vercel.app'
+    ];
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      logger.error(`Origin ${origin} not allowed by CORS`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Accept'],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
+
+// Request logging middleware
+app.use((req, res, next) => {
+  logger.info(`Incoming ${req.method} request to ${req.path}`, {
+    headers: req.headers,
+    query: req.query,
+    body: req.body,
+    ip: req.ip
+  });
+  next();
+});
 
 // Database client cache with TTL
 const dbClients = new Map();
@@ -35,8 +68,16 @@ const getSupabaseClient = (url, apiKey) => {
   const cacheKey = `supabase:${url}`;
   if (!dbClients.has(cacheKey)) {
     logger.info(`Creating new Supabase connection: ${url}`);
+    const options = {
+      auth: {
+        persistSession: false
+      },
+      global: {
+        fetch: fetch
+      }
+    };
     dbClients.set(cacheKey, {
-      client: createClient(url, apiKey),
+      client: createClient(url, apiKey, options),
       timestamp: Date.now()
     });
   }
@@ -90,18 +131,35 @@ const getPostgresClient = async (url) => {
 
 // Query execution handlers for each database type
 const executeSupabaseQuery = async (client, query, tableName) => {
-  if (query.trim().toLowerCase().startsWith('select')) {
-    // For SELECT queries, use Supabase's query builder
-    const { data, error } = await client
-      .from(tableName)
-      .select(query.replace(/^select\s+/i, '').split('from')[0].trim());
-    if (error) throw error;
-    return data;
-  } else {
-    // For other queries, use RPC if available
-    const { data, error } = await client.rpc('execute_raw_query', { query_text: query });
-    if (error) throw error;
-    return data;
+  try {
+    if (query.trim().toLowerCase().startsWith('select')) {
+      // For SELECT queries, use Supabase's query builder
+      const { data, error } = await client
+        .from(tableName)
+        .select(query.replace(/^select\s+/i, '').split('from')[0].trim());
+      
+      if (error) {
+        logger.error('Supabase SELECT query error:', error);
+        throw error;
+      }
+      return data;
+    } else {
+      // For other queries, use RPC if available
+      const { data, error } = await client.rpc('execute_raw_query', { query_text: query });
+      if (error) {
+        logger.error('Supabase RPC query error:', error);
+        throw error;
+      }
+      return data;
+    }
+  } catch (error) {
+    logger.error('Supabase query execution error:', {
+      error: error.message,
+      stack: error.stack,
+      query,
+      tableName
+    });
+    throw error;
   }
 };
 
@@ -217,14 +275,29 @@ app.get('/health', (req, res) => {
 // Query execution endpoint
 app.post('/api/queries/execute', validateQueryRequest, async (req, res) => {
   try {
+    logger.info('Executing query with config:', {
+      dbType: req.body.dbConfig.type,
+      query: req.body.query
+    });
+
     const { query, dbConfig } = req.body;
     const data = await executeQuery(dbConfig, query);
+    
+    logger.info('Query executed successfully');
     res.json({ data });
   } catch (error) {
-    logger.error('Query execution error:', error);
+    logger.error('Query execution error:', {
+      error: error.message,
+      stack: error.stack,
+      dbType: req.body?.dbConfig?.type,
+      query: req.body?.query
+    });
+    
+    // Send a more detailed error response
     res.status(500).json({ 
       error: error.message,
-      type: error.name
+      type: error.name,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
@@ -233,16 +306,24 @@ app.post('/api/queries/execute', validateQueryRequest, async (req, res) => {
 app.use((err, req, res, next) => {
   logger.error('Server error:', {
     message: err.message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    headers: req.headers,
+    body: req.body
   });
 
   res.status(500).json({
     error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
+    details: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 });
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  logger.info(`Server running on port ${port}`);
+  logger.info(`Server running on port ${port}`, {
+    nodeEnv: process.env.NODE_ENV,
+    port: port
+  });
 });
