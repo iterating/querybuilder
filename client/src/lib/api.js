@@ -76,24 +76,6 @@ class Api {
   async shareQuery(id) {
     return this.request(`/history/${id}/share`);
   }
-
-  // Template endpoints
-  async getTemplates() {
-    return this.request('/templates');
-  }
-
-  async createTemplate(template) {
-    return this.request('/templates', {
-      method: 'POST',
-      body: template,
-    });
-  }
-
-  async deleteTemplate(id) {
-    return this.request(`/templates/${id}`, {
-      method: 'DELETE',
-    });
-  }
 }
 
 export const api = new Api();

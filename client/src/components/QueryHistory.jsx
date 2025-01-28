@@ -9,10 +9,12 @@ export function QueryHistory({ onSelectQuery, currentQuery }) {
   const [templates, setTemplates] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
-  const [newTemplateName, setNewTemplateName] = useState('');
-  const [newTemplateDescription, setNewTemplateDescription] = useState('');
-  const [newTemplateCategory, setNewTemplateCategory] = useState('');
-  const [newTemplateDatabaseType, setNewTemplateDatabaseType] = useState('');
+  const [newTemplate, setNewTemplate] = useState({
+    name: '',
+    description: '',
+    category: '',
+    database_type: ''
+  });
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
 
   useEffect(() => {
@@ -30,79 +32,127 @@ export function QueryHistory({ onSelectQuery, currentQuery }) {
     setTemplates(savedTemplates);
   };
 
-  const saveQuery = (query, name = '') => {
-    const newQuery = {
-      id: Date.now().toString(),
-      name: name || 'Unnamed Query',
-      query,
-      is_favorite: false,
-      created_at: new Date().toISOString()
-    };
-
-    const updatedQueries = [newQuery, ...queries];
-    setQueries(updatedQueries);
-    Storage.saveHistory(updatedQueries);
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewTemplate(prev => ({ ...prev, [name]: value }));
   };
 
-  const toggleFavorite = (id, currentStatus) => {
-    const updatedQueries = queries.map(q => 
-      q.id === id ? { ...q, is_favorite: !currentStatus } : q
-    );
-    setQueries(updatedQueries);
-    Storage.saveHistory(updatedQueries);
-  };
-
-  const shareQuery = async (queryId) => {
-    const query = queries.find(q => q.id === queryId);
-    if (query) {
-      const shareText = `${query.name}\n\n${query.query}`;
-      try {
-        await navigator.clipboard.writeText(shareText);
-        // You could add a toast notification here
-      } catch (err) {
-        console.error('Error copying to clipboard:', err);
-      }
-    }
-  };
-
-  const deleteQuery = (id) => {
-    const updatedQueries = queries.filter(q => q.id !== id);
-    setQueries(updatedQueries);
-    Storage.saveHistory(updatedQueries);
-  };
-
-  const saveAsTemplate = () => {
-    if (!currentQuery || !newTemplateName.trim()) return;
-
-    const newTemplate = {
-      id: Date.now().toString(),
-      name: newTemplateName.trim(),
-      description: newTemplateDescription.trim(),
-      category: newTemplateCategory.trim(),
-      database_type: newTemplateDatabaseType.trim(),
-      query: currentQuery,
-      created_at: new Date().toISOString()
-    };
-
-    const updatedTemplates = [newTemplate, ...templates];
-    setTemplates(updatedTemplates);
-    Storage.saveTemplates(updatedTemplates);
-    setNewTemplateName('');
-    setNewTemplateDescription('');
-    setNewTemplateCategory('');
-    setNewTemplateDatabaseType('');
+  const resetNewTemplate = () => {
+    setNewTemplate({
+      name: '',
+      description: '',
+      category: '',
+      database_type: ''
+    });
     setShowSaveTemplate(false);
   };
 
-  const deleteTemplate = (id) => {
-    const updatedTemplates = templates.filter(t => t.id !== id);
+  const saveAsTemplate = () => {
+    if (!currentQuery || !newTemplate.name.trim()) return;
+
+    const template = {
+      id: Date.now().toString(),
+      ...newTemplate,
+      query: currentQuery,
+      is_public: true
+    };
+
+    const updatedTemplates = [template, ...templates];
     setTemplates(updatedTemplates);
     Storage.saveTemplates(updatedTemplates);
+    resetNewTemplate();
+  };
+
+  const handleAction = {
+    saveQuery: (query, name = '') => {
+      const newQuery = {
+        id: Date.now().toString(),
+        name: name || 'Unnamed Query',
+        query,
+        is_favorite: false,
+        created_at: new Date().toISOString()
+      };
+      const updatedQueries = [newQuery, ...queries];
+      setQueries(updatedQueries);
+      Storage.saveHistory(updatedQueries);
+    },
+
+    toggleFavorite: (id, currentStatus) => {
+      const updatedQueries = queries.map(q => 
+        q.id === id ? { ...q, is_favorite: !currentStatus } : q
+      );
+      setQueries(updatedQueries);
+      Storage.saveHistory(updatedQueries);
+    },
+
+    shareQuery: async (queryId) => {
+      const query = queries.find(q => q.id === queryId);
+      if (query) {
+        const shareText = `${query.name}\n\n${query.query}`;
+        try {
+          await navigator.clipboard.writeText(shareText);
+        } catch (err) {
+          console.error('Error copying to clipboard:', err);
+        }
+      }
+    },
+
+    deleteQuery: (id) => {
+      const updatedQueries = queries.filter(q => q.id !== id);
+      setQueries(updatedQueries);
+      Storage.saveHistory(updatedQueries);
+    },
+
+    deleteTemplate: (id) => {
+      const updatedTemplates = templates.filter(t => t.id !== id);
+      setTemplates(updatedTemplates);
+      Storage.saveTemplates(updatedTemplates);
+    }
   };
 
   const filteredItems = showTemplates 
     ? templates.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()))
     : queries.filter(q => q.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  const renderTemplateForm = () => (
+    <div className="p-4 bg-zinc-800/50 border border-zinc-700 rounded-lg">
+      <div className="space-y-4">
+        {Object.entries({
+          name: 'Template name',
+          description: 'Template description',
+          category: 'Template category',
+          database_type: 'Database type'
+        }).map(([key, placeholder]) => (
+          <Input
+            key={key}
+            type="text"
+            name={key}
+            placeholder={placeholder}
+            value={newTemplate[key]}
+            onChange={handleInputChange}
+            className="bg-zinc-800 border-zinc-700 text-zinc-100"
+          />
+        ))}
+        <div className="flex justify-end space-x-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={resetNewTemplate}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={saveAsTemplate}
+            disabled={!newTemplate.name.trim()}
+          >
+            Save Template
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-4">
@@ -140,63 +190,7 @@ export function QueryHistory({ onSelectQuery, currentQuery }) {
         </div>
       )}
 
-      {showSaveTemplate && (
-        <div className="p-4 bg-zinc-800/50 border border-zinc-700 rounded-lg">
-          <div className="space-y-4">
-            <Input
-              type="text"
-              placeholder="Template name"
-              value={newTemplateName}
-              onChange={(e) => setNewTemplateName(e.target.value)}
-              className="bg-zinc-800 border-zinc-700 text-zinc-100"
-            />
-            <Input
-              type="text"
-              placeholder="Template description"
-              value={newTemplateDescription}
-              onChange={(e) => setNewTemplateDescription(e.target.value)}
-              className="bg-zinc-800 border-zinc-700 text-zinc-100"
-            />
-            <Input
-              type="text"
-              placeholder="Template category"
-              value={newTemplateCategory}
-              onChange={(e) => setNewTemplateCategory(e.target.value)}
-              className="bg-zinc-800 border-zinc-700 text-zinc-100"
-            />
-            <Input
-              type="text"
-              placeholder="Template database type"
-              value={newTemplateDatabaseType}
-              onChange={(e) => setNewTemplateDatabaseType(e.target.value)}
-              className="bg-zinc-800 border-zinc-700 text-zinc-100"
-            />
-            <div className="flex justify-end space-x-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setShowSaveTemplate(false);
-                  setNewTemplateName('');
-                  setNewTemplateDescription('');
-                  setNewTemplateCategory('');
-                  setNewTemplateDatabaseType('');
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={saveAsTemplate}
-                disabled={!newTemplateName.trim()}
-              >
-                Save Template
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {showSaveTemplate && renderTemplateForm()}
 
       <div className="space-y-2">
         {filteredItems.length === 0 ? (
@@ -230,9 +224,11 @@ export function QueryHistory({ onSelectQuery, currentQuery }) {
                       </div>
                     </>
                   )}
-                  <p className="text-xs text-zinc-500 mt-1">
-                    {new Date(item.created_at).toLocaleDateString()}
-                  </p>
+                  {item.created_at && (
+                    <p className="text-xs text-zinc-500 mt-1">
+                      {new Date(item.created_at).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-shrink-0 items-center space-x-2">
                   <Button
@@ -249,7 +245,7 @@ export function QueryHistory({ onSelectQuery, currentQuery }) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => toggleFavorite(item.id, item.is_favorite)}
+                        onClick={() => handleAction.toggleFavorite(item.id, item.is_favorite)}
                         className="text-zinc-100 hover:bg-zinc-700"
                         title={item.is_favorite ? "Remove from favorites" : "Add to favorites"}
                       >
@@ -262,7 +258,7 @@ export function QueryHistory({ onSelectQuery, currentQuery }) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => shareQuery(item.id)}
+                        onClick={() => handleAction.shareQuery(item.id)}
                         className="text-zinc-100 hover:bg-zinc-700"
                         title="Share query"
                       >
@@ -271,7 +267,7 @@ export function QueryHistory({ onSelectQuery, currentQuery }) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => deleteQuery(item.id)}
+                        onClick={() => handleAction.deleteQuery(item.id)}
                         className="text-zinc-100 hover:bg-zinc-700"
                         title="Delete query"
                       >
@@ -282,7 +278,7 @@ export function QueryHistory({ onSelectQuery, currentQuery }) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => deleteTemplate(item.id)}
+                      onClick={() => handleAction.deleteTemplate(item.id)}
                       className="text-zinc-100 hover:bg-zinc-700"
                       title="Delete template"
                     >
