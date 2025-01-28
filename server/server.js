@@ -1,13 +1,16 @@
 import 'dotenv/config';
 import express from 'express';
-import { router as authRouter } from './routes/auth.js';
-import { router as queryRouter } from './routes/queries.js';
-import { router as dataRouter } from './routes/data.js';
-import { corsMiddleware } from './middleware/cors.js';
+import cors from 'cors';
+import { createClient } from '@supabase/supabase-js';
 import { logger } from './utils/logger.js';
 
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 // Validate required environment variables
-const requiredEnvVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY'];
+const requiredEnvVars = ['SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'];
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
 
 if (missingEnvVars.length > 0) {
@@ -29,74 +32,46 @@ app.use((req, res, next) => {
   next();
 });
 
-// Error handling for JSON parsing
-app.use(express.json({
-  limit: '1mb',
-  verify: (req, res, buf) => {
-    try {
-      JSON.parse(buf);
-    } catch (e) {
-      res.status(400).json({ 
-        error: 'Invalid JSON',
-        message: 'The request body contains invalid JSON'
-      });
-      throw new Error('Invalid JSON');
-    }
-  }
-}));
-
-// Apply CORS middleware
-app.use(corsMiddleware);
+// Middleware
+app.use(cors());
+app.use(express.json());
 
 // Health check endpoint (before other routes)
 app.get('/health', (req, res) => {
   // Check Supabase connection
-  const supabaseAvailable = process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY;
+  const supabaseAvailable = process.env.SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   
   res.status(200).json({ 
     status: 'ok',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
     supabase: supabaseAvailable ? 'configured' : 'not configured'
   });
 });
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.status(200).json({ 
-    name: 'Data Analytics API',
-    version: '1.0.0',
-    environment: process.env.NODE_ENV,
-    docs: '/api/docs'
-  });
-});
-
-// API Routes with versioning prefix
-const apiPrefix = '/api';
-app.use(`${apiPrefix}/auth`, authRouter);
-app.use(`${apiPrefix}/queries`, queryRouter);
-app.use(`${apiPrefix}/data`, dataRouter);
-
-// API Documentation endpoint
-app.get(`${apiPrefix}/docs`, (req, res) => {
-  res.status(200).json({
-    version: '1.0.0',
-    endpoints: {
-      auth: {
-        login: 'POST /api/auth/login',
-        register: 'POST /api/auth/register',
-        refresh: 'POST /api/auth/refresh'
-      },
-      queries: {
-        execute: 'POST /api/queries/execute',
-        history: 'GET /api/queries/history'
-      },
-      data: {
-        tables: 'GET /api/data/tables',
-        columns: 'GET /api/data/tables/:table/columns'
-      }
+// Query execution endpoint
+app.post('/api/queries/execute', async (req, res) => {
+  try {
+    const { query } = req.body;
+    
+    if (!query) {
+      return res.status(400).json({ error: 'Query is required' });
     }
-  });
+
+    // Execute the query using Supabase
+    const { data, error } = await supabase
+      .from('your_table_name')  // Replace with your actual table name
+      .select()
+      .textSearch('content', query);  // Adjust this based on your actual query needs
+
+    if (error) {
+      logger.error('Query execution error:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ data });
+  } catch (error) {
+    logger.error('Unexpected error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // 404 handler
@@ -155,13 +130,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server if not in production (Vercel handles this in production)
-if (process.env.NODE_ENV !== 'production') {
-  const port = process.env.PORT || 3000;
-  app.listen(port, () => {
-    logger.info(`Server running on port ${port}`);
-    logger.info(`Environment: ${process.env.NODE_ENV}`);
-  });
-}
-
-export default app;
+const port = process.env.PORT || 3000
+app.listen(port, () => {
+  logger.info(`Server running on port ${port}`);
+});
