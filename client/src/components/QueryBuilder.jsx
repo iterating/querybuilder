@@ -105,76 +105,86 @@ export function QueryBuilder() {
   };
 
   return (
-    <div className="container mx-auto p-4 space-y-8">
-      <DatabaseConfig onConfigChange={setDbConfig} />
+    <div className="min-h-screen bg-gradient-to-b from-zinc-900 to-zinc-950">
+      <div className="container mx-auto p-6 space-y-8">
+        <div className="bg-zinc-800/50 rounded-lg shadow-xl p-6 backdrop-blur-sm">
+          <DatabaseConfig onConfigChange={setDbConfig} />
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Query Editor</h2>
-            <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Query
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between bg-zinc-800/50 rounded-lg p-4 backdrop-blur-sm">
+              <h2 className="text-xl font-semibold text-zinc-100">Query Editor</h2>
+              <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="hover:bg-zinc-700/50">
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Query
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-zinc-900 border-zinc-800">
+                  <DialogHeader>
+                    <DialogTitle className="text-zinc-100">Save Query</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-4">
+                    <Input
+                      placeholder="Query name"
+                      value={queryName}
+                      onChange={(e) => setQueryName(e.target.value)}
+                      className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                    />
+                    <Button onClick={saveQuery} className="w-full bg-green-600 hover:bg-green-700">Save</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <div className="bg-zinc-800/50 rounded-lg p-4 backdrop-blur-sm">
+              <Textarea
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Enter your query..."
+                className={cn(
+                  "min-h-[200px]",
+                  "bg-zinc-900 text-green-400 placeholder-green-700",
+                  "border-zinc-700 focus-visible:border-green-700",
+                  "focus-visible:ring-green-500"
+                )}
+              />
+
+              <div className="mt-4 flex justify-end space-x-3">
+                <Button 
+                  onClick={executeQuery}
+                  disabled={loading || !query.trim() || !dbConfig.url}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {loading ? 'Executing...' : 'Execute Query'}
                 </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Save Query</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <Input
-                    placeholder="Query name"
-                    value={queryName}
-                    onChange={(e) => setQueryName(e.target.value)}
-                  />
-                  <Button onClick={saveQuery}>Save</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-red-900/50 text-red-200 p-4 rounded-lg backdrop-blur-sm">
+                <p className="font-mono text-sm">{error}</p>
+              </div>
+            )}
           </div>
 
-          <Textarea
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Enter your query..."
-            className={cn(
-              "min-h-[200px] font-mono",
-              "bg-zinc-900 text-green-400 placeholder-green-700",
-              "border-2 border-zinc-700 focus-visible:border-green-700",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-green-500",
-              "shadow-inner"
+          <div className="space-y-6">
+            <div className="bg-zinc-800/50 rounded-lg p-4 backdrop-blur-sm">
+              <h2 className="text-xl font-semibold text-zinc-100 mb-4">Query History & Templates</h2>
+              <QueryHistory onSelectQuery={handleSelectQuery} />
+            </div>
+
+            {results && (
+              <div className="bg-zinc-800/50 rounded-lg p-4 backdrop-blur-sm">
+                <h2 className="text-xl font-semibold text-zinc-100 mb-4">Results</h2>
+                <DataVisualizer data={results} />
+              </div>
             )}
-          />
-
-          <Button 
-            onClick={executeQuery}
-            disabled={loading || !query.trim() || !dbConfig.url}
-            className="w-full"
-          >
-            {loading ? 'Executing...' : 'Execute Query'}
-          </Button>
-        </div>
-
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Query History & Templates</h2>
-          <QueryHistory onSelectQuery={handleSelectQuery} />
+          </div>
         </div>
       </div>
-
-      {error && (
-        <div className="p-4 border border-red-500 rounded bg-red-50 text-red-700">
-          {error}
-        </div>
-      )}
-
-      {results && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Results</h2>
-          <DataVisualizer data={results} />
-        </div>
-      )}
     </div>
   );
 }
