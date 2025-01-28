@@ -1,23 +1,30 @@
 {
   "version": 2,
-  "buildCommand": "pnpm turbo build",
-  "installCommand": "pnpm install",
-  "outputDirectory": "client/dist",
-  "framework": "vite",
   "builds": [
     {
-      "src": "server/dist/server.js",
+      "src": "server/server.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist",
+        "buildCommand": "cd client && npm install && npm run build && mv dist ../dist"
+      }
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "server/dist/server.js"
+      "dest": "server/server.js"
+    },
+    {
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
-      "dest": "client/dist/$1"
+      "dest": "/index.html"
     }
   ]
 }

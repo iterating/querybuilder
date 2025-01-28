@@ -4,17 +4,28 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "preinstall": "npx only-allow pnpm",
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "start": "node server/dist/server.js",
-    "lint": "turbo run lint"
+    "dev:client": "cd client && vite",
+    "dev:server": "node server/server.js",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "build": "cd client && npm install && vite build && mv dist ../dist",
+    "vercel-build": "cd client && npm install && vite build && mv dist ../dist",
+    "start": "node server/server.js",
+    "lint": "eslint .",
+    "preview": "cd client && vite preview",
+    "test": "vitest",
+    "test:watch": "vitest watch",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui"
   },
   "devDependencies": {
-    "turbo": "^1.11.3"
+    "concurrently": "^8.2.2",
+    "vitest": "^1.2.1",
+    "@vitest/coverage-v8": "^1.2.1",
+    "@vitest/ui": "^1.2.1",
+    "eslint": "^8.45.0"
   },
   "engines": {
-    "node": ">=18.0.0",
-    "pnpm": ">=8.0.0"
+    "node": "",
+    "pnpm": ""
   }
 }
