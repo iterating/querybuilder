@@ -1,78 +1,102 @@
+import { createClient } from '@supabase/supabase-js';
 import { MongoClient } from 'mongodb';
 import mysql from 'mysql2/promise';
 import pg from 'pg';
 import { logger } from '../utils/logger.js';
-
-// Database client cache with TTL
-const dbClients = new Map();
-const CLIENT_TTL = 1000 * 60 * 30; // 30 minutes
-
-// Cleanup expired connections periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of dbClients) {
-    if (now - value.timestamp > CLIENT_TTL) {
-      DatabaseService.releaseClient(value.client);
-      dbClients.delete(key);
-      logger.info(`Closed expired connection: ${key}`);
-    }
-  }
-}, 1000 * 60 * 5); // Check every 5 minutes
+import fetch from 'node-fetch';
 
 class DatabaseService {
-  static async getClient(type, url) {
-    const cacheKey = `${type}:${url}`;
-    
-    if (dbClients.has(cacheKey)) {
-      dbClients.get(cacheKey).timestamp = Date.now();
-      return dbClients.get(cacheKey).client;
-    }
+  constructor() {
+    this.clients = new Map();
+    this.CLIENT_TTL = 1000 * 60 * 30; // 30 minutes
+    this.startCleanupInterval();
+  }
 
-    logger.info(`Creating new ${type} connection: ${url}`);
-    let client;
-
-    try {
-      switch (type) {
-        case 'mongodb': {
-          client = new MongoClient(url);
-          await client.connect();
-          break;
+  startCleanupInterval() {
+    setInterval(() => {
+      const now = Date.now();
+      for (const [key, value] of this.clients) {
+        if (now - value.timestamp > this.CLIENT_TTL) {
+          if (value.client.end) value.client.end();
+          if (value.client.close) value.client.close();
+          this.clients.delete(key);
+          logger.info(`Closed expired connection: ${key}`);
         }
-        case 'mysql': {
-          client = await mysql.createConnection(url);
-          break;
-        }
-        case 'postgres': {
-          client = new pg.Client(url);
-          await client.connect();
-          break;
-        }
-        default:
-          throw new Error(`Unsupported database type: ${type}`);
       }
+    }, 1000 * 60 * 5); // Check every 5 minutes
+  }
 
-      dbClients.set(cacheKey, {
+  getSupabaseClient(url, apiKey) {
+    const cacheKey = `supabase:${url}`;
+    if (!this.clients.has(cacheKey)) {
+      logger.info(`Creating new Supabase connection: ${url}`);
+      const options = {
+        auth: { persistSession: false },
+        global: { fetch }
+      };
+      this.clients.set(cacheKey, {
+        client: createClient(url, apiKey, options),
+        timestamp: Date.now()
+      });
+    }
+    this.clients.get(cacheKey).timestamp = Date.now();
+    return this.clients.get(cacheKey).client;
+  }
+
+  async getMongoClient(url) {
+    const cacheKey = `mongodb:${url}`;
+    if (!this.clients.has(cacheKey)) {
+      logger.info(`Creating new MongoDB connection: ${url}`);
+      const client = new MongoClient(url);
+      await client.connect();
+      this.clients.set(cacheKey, {
         client,
         timestamp: Date.now()
       });
-
-      return client;
-    } catch (error) {
-      logger.error(`Failed to create ${type} connection:`, error);
-      throw error;
     }
+    this.clients.get(cacheKey).timestamp = Date.now();
+    return this.clients.get(cacheKey).client;
   }
 
-  static async releaseClient(client) {
-    try {
-      if (!client) return;
-
-      if (client.end) await client.end();
-      if (client.close) await client.close();
-    } catch (error) {
-      logger.error('Error releasing database client:', error);
+  async getMySQLClient(url) {
+    const cacheKey = `mysql:${url}`;
+    if (!this.clients.has(cacheKey)) {
+      logger.info(`Creating new MySQL connection: ${url}`);
+      const connection = await mysql.createConnection(url);
+      this.clients.set(cacheKey, {
+        client: connection,
+        timestamp: Date.now()
+      });
     }
+    this.clients.get(cacheKey).timestamp = Date.now();
+    return this.clients.get(cacheKey).client;
+  }
+
+  async getPostgresClient(url) {
+    const cacheKey = `postgres:${url}`;
+    if (!this.clients.has(cacheKey)) {
+      logger.info(`Creating new PostgreSQL connection: ${url}`);
+      const client = new pg.Client(url);
+      await client.connect();
+      this.clients.set(cacheKey, {
+        client,
+        timestamp: Date.now()
+      });
+    }
+    this.clients.get(cacheKey).timestamp = Date.now();
+    return this.clients.get(cacheKey).client;
+  }
+
+  getActiveConnections() {
+    return Array.from(this.clients.entries()).map(([key, value]) => ({
+      type: key.split(':')[0],
+      lastUsed: new Date(value.timestamp).toISOString()
+    }));
+  }
+
+  getConnectionCount() {
+    return this.clients.size;
   }
 }
 
-export default DatabaseService;
+export const dbService = new DatabaseService();

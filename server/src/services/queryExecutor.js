@@ -1,58 +1,59 @@
 import { logger } from '../utils/logger.js';
-import DatabaseService from './database.js';
-
-const SANDBOX_MODE = true; // Enable sandbox mode by default
-
-// List of dangerous keywords that could modify data
-const DANGEROUS_KEYWORDS = [
-  'insert',
-  'update',
-  'delete',
-  'drop',
-  'truncate',
-  'alter',
-  'create',
-  'replace',
-  'rename',
-  'restore',
-  'grant',
-  'revoke'
-];
+import { dbService } from './database.js';
 
 class QueryExecutor {
-  static validateQuery(query) {
-    if (SANDBOX_MODE) {
-      const lowerQuery = query.toLowerCase();
-      const dangerousOperation = DANGEROUS_KEYWORDS.some(keyword => 
-        lowerQuery.includes(keyword)
-      );
-      
-      if (dangerousOperation) {
-        throw new Error('Write operations are not allowed in sandbox mode. Only SELECT queries are permitted.');
+  async executeSupabaseQuery(client, query, tableName) {
+    try {
+      if (query.trim().toLowerCase().startsWith('select')) {
+        // For SELECT queries, use Supabase's query builder
+        const { data, error } = await client
+          .from(tableName)
+          .select(query.replace(/^select\s+/i, '').split('from')[0].trim());
+        
+        if (error) {
+          logger.error('Supabase SELECT query error:', error);
+          throw error;
+        }
+        return data;
+      } else {
+        // For other queries, use RPC if available
+        const { data, error } = await client.rpc('execute_raw_query', { query_text: query });
+        if (error) {
+          logger.error('Supabase RPC query error:', error);
+          throw error;
+        }
+        return data;
       }
-
-      if (!lowerQuery.trim().startsWith('select')) {
-        throw new Error('Only SELECT queries are allowed in sandbox mode.');
-      }
+    } catch (error) {
+      logger.error('Supabase query execution error:', {
+        error: error.message,
+        stack: error.stack,
+        query,
+        tableName
+      });
+      throw error;
     }
   }
 
-  static async executeMongoQuery(client, query) {
+  async executeMongoQuery(client, query, tableName) {
     const db = client.db();
-    
+    const collection = db.collection(tableName);
+
     try {
+      // Try to parse as a MongoDB query object
       if (typeof query === 'string') {
-        if (SANDBOX_MODE) {
-          // In MongoDB, only allow find operations
-          if (!query.includes('find') && !query.includes('aggregate')) {
-            throw new Error('Only find and aggregate operations are allowed in sandbox mode.');
-          }
+        // Handle different MongoDB operations
+        if (query.startsWith('db.')) {
+          // Execute as a MongoDB command
+          const command = eval(`(${query.replace('db.', '').replace('.find', '')})`);
+          return await collection.find(command).toArray();
+        } else {
+          // Try to parse as a JSON query
+          const parsedQuery = JSON.parse(query.replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3'));
+          return await collection.find(parsedQuery).toArray();
         }
-        // Parse the query string into a MongoDB command
-        const command = eval(`(${query})`);
-        return await db.command(command);
       } else {
-        throw new Error('Query must be a string');
+        return await collection.find(query).toArray();
       }
     } catch (e) {
       logger.error('MongoDB query parsing error:', e);
@@ -60,75 +61,49 @@ class QueryExecutor {
     }
   }
 
-  static async executeMySQLQuery(client, query) {
-    this.validateQuery(query);
+  async executeMySQLQuery(client, query) {
     const [rows] = await client.execute(query);
     return rows;
   }
 
-  static async executePostgresQuery(client, query) {
-    this.validateQuery(query);
+  async executePostgresQuery(client, query) {
     const result = await client.query(query);
     return result.rows;
   }
 
-  static async executeQuery(dbConfig, query) {
-    const { type, url } = dbConfig;
-    
-    if (!type || !url) {
-      throw new Error('Database configuration is incomplete');
-    }
+  async executeQuery(dbConfig, query) {
+    const { type, url, apiKey, tableName } = dbConfig;
 
-    let client;
     try {
-      client = await DatabaseService.getClient(type, url);
-      
-      let result;
       switch (type) {
-        case 'mongodb':
-          result = await this.executeMongoQuery(client, query);
-          break;
-        case 'mysql':
-          result = await this.executeMySQLQuery(client, query);
-          break;
-        case 'postgres':
-          result = await this.executePostgresQuery(client, query);
-          break;
+        case 'supabase': {
+          const client = dbService.getSupabaseClient(url, apiKey);
+          return await this.executeSupabaseQuery(client, query, tableName);
+        }
+
+        case 'mongodb': {
+          const client = await dbService.getMongoClient(url);
+          return await this.executeMongoQuery(client, query, tableName);
+        }
+
+        case 'mysql': {
+          const client = await dbService.getMySQLClient(url);
+          return await this.executeMySQLQuery(client, query);
+        }
+
+        case 'postgres': {
+          const client = await dbService.getPostgresClient(url);
+          return await this.executePostgresQuery(client, query);
+        }
+
         default:
           throw new Error(`Unsupported database type: ${type}`);
       }
-
-      return result;
     } catch (error) {
-      logger.error(`Query execution error: ${error.message}`, {
-        type,
-        query,
-        error: error.stack
-      });
-      throw error;
-    } finally {
-      if (client) {
-        await DatabaseService.releaseClient(client);
-      }
-    }
-  }
-
-  static async getQueryHistory(userId) {
-    try {
-      const client = await DatabaseService.getClient('postgres', process.env.DATABASE_URL);
-      const result = await client.query(
-        'SELECT * FROM query_history WHERE user_id = $1 ORDER BY created_at DESC',
-        [userId]
-      );
-      return result.rows;
-    } catch (error) {
-      logger.error(`Failed to get query history: ${error.message}`, {
-        userId,
-        error: error.stack
-      });
+      logger.error(`Database query error (${type}):`, error);
       throw error;
     }
   }
 }
 
-export default QueryExecutor;
+export const queryExecutor = new QueryExecutor();

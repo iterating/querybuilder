@@ -2,6 +2,14 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
+// Get the API URL from environment or use default local URL
+const getApiUrl = () => {
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  return process.env.VITE_API_URL || 'http://localhost:3000';
+};
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -22,9 +30,10 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: getApiUrl(),
         changeOrigin: true,
-        secure: false,
+        secure: process.env.NODE_ENV === 'production',
+        rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
   },

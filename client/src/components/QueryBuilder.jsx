@@ -6,6 +6,7 @@ import { Button } from './ui/button';
 import { PlayIcon, SaveIcon, HistoryIcon, BookTemplate, PencilIcon, PlusIcon } from 'lucide-react';
 import { DEFAULT_TEMPLATES } from '../lib/defaultTemplates';
 import { TemplateDialog } from './TemplateDialog';
+import { api } from '../lib/api';
 
 export function QueryBuilder() {
   const [query, setQuery] = useState('');
@@ -27,47 +28,14 @@ export function QueryBuilder() {
     try {
       // Test API connection first
       console.log('Testing API connection...');
-      const testResponse = await fetch('/api/test', {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      console.log('Test response status:', testResponse.status);
-      if (!testResponse.ok) {
-        const errorText = await testResponse.text();
-        console.error('Test response error:', errorText);
-        throw new Error(`Could not connect to API server (${testResponse.status}): ${errorText}`);
-      }
-      
-      const testData = await testResponse.json();
-      console.log('API test response:', testData);
+      await api.testConnection();
 
       console.log('Executing query...');
-      const response = await fetch('/api/queries/execute', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query, config: dbConfig })
-      });
-      
-      console.log('Query response status:', response.status);
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Query response error:', errorData);
-        throw new Error(errorData.message || `Failed to execute query (${response.status})`);
-      }
-      
-      const data = await response.json();
-      console.log('Query response data:', data);
+      const { data } = await api.executeQuery(query, dbConfig);
       setResults(data);
-    } catch (err) {
-      console.error('Query error:', err);
-      setError(err.message);
+    } catch (error) {
+      console.error('Query error:', error);
+      setError(error.message);
       setResults(null);
     } finally {
       setLoading(false);
@@ -76,15 +44,18 @@ export function QueryBuilder() {
 
   const handleTemplateSelect = (template) => {
     setQuery(template.query);
+    if (template.dbConfig) {
+      setDbConfig(template.dbConfig);
+    }
   };
 
-  const handleEditTemplate = (template) => {
+  const handleTemplateEdit = (template) => {
     setSelectedTemplate(template);
     setTemplateDialogMode('edit');
     setIsTemplateDialogOpen(true);
   };
 
-  const handleCreateTemplate = () => {
+  const handleTemplateCreate = () => {
     setSelectedTemplate({
       id: `template_${Date.now()}`,
       name: '',
@@ -98,19 +69,15 @@ export function QueryBuilder() {
     setIsTemplateDialogOpen(true);
   };
 
-  const handleSaveTemplate = async (editedTemplate) => {
-    try {
-      // In a real app, you would save this to your backend
-      if (templateDialogMode === 'create') {
-        setTemplates(prev => [...prev, editedTemplate]);
-      } else {
-        setTemplates(prev => 
-          prev.map(t => t.id === editedTemplate.id ? editedTemplate : t)
-        );
-      }
-    } catch (err) {
-      console.error('Failed to save template:', err);
+  const handleTemplateSave = (template) => {
+    if (templateDialogMode === 'create') {
+      setTemplates([...templates, template]);
+    } else {
+      setTemplates(templates.map(t => 
+        t.id === template.id ? template : t
+      ));
     }
+    setIsTemplateDialogOpen(false);
   };
 
   const filteredTemplates = templates.filter(
@@ -201,7 +168,7 @@ export function QueryBuilder() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleCreateTemplate}
+                  onClick={handleTemplateCreate}
                   className="text-zinc-400 hover:text-zinc-100"
                 >
                   <PlusIcon className="w-4 h-4 mr-1" />
@@ -231,7 +198,7 @@ export function QueryBuilder() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleEditTemplate(template);
+                        handleTemplateEdit(template);
                       }}
                       className="absolute top-2 right-2 p-1 text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
@@ -264,7 +231,7 @@ export function QueryBuilder() {
         isOpen={isTemplateDialogOpen}
         onClose={() => setIsTemplateDialogOpen(false)}
         template={selectedTemplate}
-        onSave={handleSaveTemplate}
+        onSave={handleTemplateSave}
         mode={templateDialogMode}
       />
     </div>
