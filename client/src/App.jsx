@@ -3,7 +3,7 @@ import { QueryBuilder } from './components/QueryBuilder'
 
 function App() {
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+    <div className="container mx-auto min-h-screen bg-background text-foreground">
       <QueryBuilder />
     </div>
   )

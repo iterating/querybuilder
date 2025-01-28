@@ -1,4 +1,4 @@
-ww# Data Analytics Sandbox
+# Data Analytics Sandbox
 
 A secure and scalable platform that enables data analysts and developers to execute custom queries and build analytics tools, powered by Supabase.
 
@@ -72,14 +72,7 @@ A secure and scalable platform that enables data analysts and developers to exec
    pnpm install
    ```
 
-4. Create a `.env` file with the following variables:
-   ```
-   PORT=3000
-   SUPABASE_URL=your_supabase_project_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
-
-5. Start the server:
+4. Start the server:
    ```bash
    pnpm start
    ```
@@ -88,6 +81,155 @@ A secure and scalable platform that enables data analysts and developers to exec
    ```bash
    pnpm dev
    ```
+
+## Supported Databases
+
+The Query Builder supports multiple database types. Here's how to use each one:
+
+### Supabase
+
+```sql
+-- Example query
+SELECT * FROM your_table WHERE column = 'value';
+```
+
+**Connection Details:**
+- URL Format: `https://your-project.supabase.co`
+- Required Fields:
+  - API Key: Your Supabase anon key
+  - Table Name: The table you want to query
+
+### PostgreSQL
+
+```sql
+-- Example query
+SELECT * FROM your_table WHERE column = 'value';
+```
+
+**Connection Details:**
+- URL Format: `postgresql://user:password@host:5432/dbname`
+- Required Fields:
+  - Table Name: The table you want to query
+
+### MySQL
+
+```sql
+-- Example query
+SELECT * FROM your_table WHERE column = 'value';
+```
+
+**Connection Details:**
+- URL Format: `mysql://user:password@host:3306/dbname`
+- Required Fields:
+  - Table Name: The table you want to query
+
+### MongoDB
+
+```javascript
+// Example query
+db.collection.find({ field: "value" })
+```
+
+**Connection Details:**
+- URL Format: `mongodb://user:password@host:27017/dbname`
+- Required Fields:
+  - Collection Name: The collection you want to query (use this as Table Name)
+
+## How to Use the Databases
+
+### Quick Start
+
+1. Start the application:
+   ```bash
+   pnpm dev
+   ```
+
+2. In the Query Builder interface:
+   - Click "Show Database Config"
+   - Select your database type
+   - Enter your connection details
+   - Start querying!
+
+### Connection Details
+
+#### Supabase
+- URL Format: `https://your-project.supabase.co`
+- Required Fields:
+  - API Key: Your Supabase anon key
+  - Table Name: The table you want to query
+
+Example Query:
+```sql
+SELECT * FROM your_table WHERE column = 'value';
+```
+
+#### PostgreSQL
+- URL Format: `postgresql://user:password@host:5432/dbname`
+- Required Fields:
+  - Table Name: The table you want to query
+
+Example Query:
+```sql
+SELECT * FROM your_table WHERE column = 'value';
+```
+
+#### MySQL
+- URL Format: `mysql://user:password@host:3306/dbname`
+- Required Fields:
+  - Table Name: The table you want to query
+
+Example Query:
+```sql
+SELECT * FROM your_table WHERE column = 'value';
+```
+
+#### MongoDB
+- URL Format: `mongodb://user:password@host:27017/dbname`
+- Required Fields:
+  - Collection Name: The collection you want to query (use this as Table Name)
+
+Example Queries:
+```javascript
+// Find all documents
+db.collection.find({})
+
+// Filter documents
+db.collection.find({ field: "value" })
+
+// Complex queries
+db.collection.find({
+  field1: "value1",
+  field2: { $gt: 100 }
+})
+```
+
+### Security Best Practices
+
+1. Use read-only database users when possible
+2. Set appropriate database permissions
+3. For production:
+   - Enable SSL/TLS for database connections
+   - Set up proper firewall rules
+   - Use environment variables in your deployment platform
+
+### Troubleshooting
+
+Common issues and solutions:
+
+1. Connection errors:
+   - Verify your connection URL format
+   - Check if the database is accessible from your network
+   - Ensure proper port access
+
+2. Query errors:
+   - Verify table/collection names
+   - Check query syntax for the specific database type
+   - Ensure proper permissions on tables/collections
+
+3. Performance issues:
+   - Add appropriate indexes
+   - Optimize your queries
+   - Check query execution plans
 
 ## Deployment to Vercel
 

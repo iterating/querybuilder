@@ -7,211 +7,242 @@ import mysql from 'mysql2/promise';
 import pg from 'pg';
 import { logger } from './utils/logger.js';
 
-// Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-// Validate required environment variables
-const requiredEnvVars = ['SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'];
-const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
-
-if (missingEnvVars.length > 0) {
-  logger.error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
-  if (process.env.NODE_ENV === 'production') {
-    process.exit(1);
-  }
-}
-
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Database client cache
+// Database client cache with TTL
 const dbClients = new Map();
+const CLIENT_TTL = 1000 * 60 * 30; // 30 minutes
+
+// Cleanup expired connections periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of dbClients) {
+    if (now - value.timestamp > CLIENT_TTL) {
+      if (value.client.end) value.client.end();
+      if (value.client.close) value.client.close();
+      dbClients.delete(key);
+      logger.info(`Closed expired connection: ${key}`);
+    }
+  }
+}, 1000 * 60 * 5); // Check every 5 minutes
 
 // Database connection functions
 const getSupabaseClient = (url, apiKey) => {
   const cacheKey = `supabase:${url}`;
   if (!dbClients.has(cacheKey)) {
-    dbClients.set(cacheKey, createClient(url, apiKey));
+    logger.info(`Creating new Supabase connection: ${url}`);
+    dbClients.set(cacheKey, {
+      client: createClient(url, apiKey),
+      timestamp: Date.now()
+    });
   }
-  return dbClients.get(cacheKey);
+  dbClients.get(cacheKey).timestamp = Date.now(); // Update timestamp
+  return dbClients.get(cacheKey).client;
 };
 
 const getMongoClient = async (url) => {
   const cacheKey = `mongodb:${url}`;
   if (!dbClients.has(cacheKey)) {
+    logger.info(`Creating new MongoDB connection: ${url}`);
     const client = new MongoClient(url);
     await client.connect();
-    dbClients.set(cacheKey, client);
+    dbClients.set(cacheKey, {
+      client,
+      timestamp: Date.now()
+    });
   }
-  return dbClients.get(cacheKey);
+  dbClients.get(cacheKey).timestamp = Date.now(); // Update timestamp
+  return dbClients.get(cacheKey).client;
 };
 
 const getMySQLClient = async (url) => {
   const cacheKey = `mysql:${url}`;
   if (!dbClients.has(cacheKey)) {
+    logger.info(`Creating new MySQL connection: ${url}`);
     const connection = await mysql.createConnection(url);
-    dbClients.set(cacheKey, connection);
+    dbClients.set(cacheKey, {
+      client: connection,
+      timestamp: Date.now()
+    });
   }
-  return dbClients.get(cacheKey);
+  dbClients.get(cacheKey).timestamp = Date.now(); // Update timestamp
+  return dbClients.get(cacheKey).client;
 };
 
 const getPostgresClient = async (url) => {
   const cacheKey = `postgres:${url}`;
   if (!dbClients.has(cacheKey)) {
+    logger.info(`Creating new PostgreSQL connection: ${url}`);
     const client = new pg.Client(url);
     await client.connect();
-    dbClients.set(cacheKey, client);
+    dbClients.set(cacheKey, {
+      client,
+      timestamp: Date.now()
+    });
   }
-  return dbClients.get(cacheKey);
+  dbClients.get(cacheKey).timestamp = Date.now(); // Update timestamp
+  return dbClients.get(cacheKey).client;
 };
 
-// Execute query based on database type
+// Query execution handlers for each database type
+const executeSupabaseQuery = async (client, query, tableName) => {
+  if (query.trim().toLowerCase().startsWith('select')) {
+    // For SELECT queries, use Supabase's query builder
+    const { data, error } = await client
+      .from(tableName)
+      .select(query.replace(/^select\s+/i, '').split('from')[0].trim());
+    if (error) throw error;
+    return data;
+  } else {
+    // For other queries, use RPC if available
+    const { data, error } = await client.rpc('execute_raw_query', { query_text: query });
+    if (error) throw error;
+    return data;
+  }
+};
+
+const executeMongoQuery = async (client, query, tableName) => {
+  const db = client.db();
+  const collection = db.collection(tableName);
+
+  try {
+    // Try to parse as a MongoDB query object
+    if (typeof query === 'string') {
+      // Handle different MongoDB operations
+      if (query.startsWith('db.')) {
+        // Execute as a MongoDB command
+        const command = eval(`(${query.replace('db.', '').replace('.find', '')})`);
+        return await collection.find(command).toArray();
+      } else {
+        // Try to parse as a JSON query
+        const parsedQuery = JSON.parse(query.replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3'));
+        return await collection.find(parsedQuery).toArray();
+      }
+    } else {
+      return await collection.find(query).toArray();
+    }
+  } catch (e) {
+    logger.error('MongoDB query parsing error:', e);
+    throw new Error('Invalid MongoDB query format');
+  }
+};
+
+const executeMySQLQuery = async (client, query) => {
+  const [rows] = await client.execute(query);
+  return rows;
+};
+
+const executePostgresQuery = async (client, query) => {
+  const result = await client.query(query);
+  return result.rows;
+};
+
+// Main query execution function
 const executeQuery = async (dbConfig, query) => {
   const { type, url, apiKey, tableName } = dbConfig;
 
   try {
     switch (type) {
       case 'supabase': {
-        const supabase = getSupabaseClient(url, apiKey);
-        const { data, error } = await supabase
-          .from(tableName)
-          .select()
-          .textSearch('content', query);
-        if (error) throw error;
-        return data;
+        const client = getSupabaseClient(url, apiKey);
+        return await executeSupabaseQuery(client, query, tableName);
       }
 
       case 'mongodb': {
         const client = await getMongoClient(url);
-        const db = client.db();
-        const collection = db.collection(tableName);
-        return await collection.find({ $text: { $search: query } }).toArray();
+        return await executeMongoQuery(client, query, tableName);
       }
 
       case 'mysql': {
-        const connection = await getMySQLClient(url);
-        const [rows] = await connection.execute(query);
-        return rows;
+        const client = await getMySQLClient(url);
+        return await executeMySQLQuery(client, query);
       }
 
       case 'postgres': {
         const client = await getPostgresClient(url);
-        const result = await client.query(query);
-        return result.rows;
+        return await executePostgresQuery(client, query);
       }
 
       default:
         throw new Error(`Unsupported database type: ${type}`);
     }
   } catch (error) {
-    logger.error('Database query error:', error);
+    logger.error(`Database query error (${type}):`, error);
     throw error;
   }
 };
 
-// Basic request logging
-app.use((req, res, next) => {
-  const start = Date.now();
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    logger.info(`${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
-  });
+// Request validation middleware
+const validateQueryRequest = (req, res, next) => {
+  const { query, dbConfig } = req.body;
+
+  if (!query) {
+    return res.status(400).json({ error: 'Query is required' });
+  }
+
+  if (!dbConfig) {
+    return res.status(400).json({ error: 'Database configuration is required' });
+  }
+
+  const { type, url } = dbConfig;
+  if (!type || !url) {
+    return res.status(400).json({ error: 'Database type and URL are required' });
+  }
+
+  if (!['supabase', 'mongodb', 'mysql', 'postgres'].includes(type)) {
+    return res.status(400).json({ error: 'Unsupported database type' });
+  }
+
   next();
-});
+};
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  // Check Supabase connection
-  const supabaseAvailable = process.env.SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  
+  const activeConnections = Array.from(dbClients.entries()).map(([key, value]) => ({
+    type: key.split(':')[0],
+    lastUsed: new Date(value.timestamp).toISOString()
+  }));
+
   res.status(200).json({ 
     status: 'ok',
-    supabase: supabaseAvailable ? 'configured' : 'not configured'
+    activeConnections,
+    connectionCount: dbClients.size
   });
 });
 
 // Query execution endpoint
-app.post('/api/queries/execute', async (req, res) => {
+app.post('/api/queries/execute', validateQueryRequest, async (req, res) => {
   try {
     const { query, dbConfig } = req.body;
-    
-    if (!query) {
-      return res.status(400).json({ error: 'Query is required' });
-    }
-
-    if (!dbConfig || !dbConfig.type || !dbConfig.url) {
-      return res.status(400).json({ error: 'Database configuration is required' });
-    }
-
     const data = await executeQuery(dbConfig, query);
     res.json({ data });
   } catch (error) {
     logger.error('Query execution error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      error: error.message,
+      type: error.name
+    });
   }
-});
-
-// 404 handler
-app.use((req, res) => {
-  logger.warn(`404 - Not Found: ${req.method} ${req.path}`);
-  res.status(404).json({ 
-    error: 'Not Found',
-    message: `The requested path ${req.path} was not found`,
-    timestamp: new Date().toISOString()
-  });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  logger.error('Error:', {
+  logger.error('Server error:', {
     message: err.message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-    path: req.path,
-    method: req.method,
-    timestamp: new Date().toISOString()
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 
-  // Handle specific error types
-  if (err.message === 'Not allowed by CORS') {
-    return res.status(403).json({
-      error: 'Forbidden',
-      message: 'Origin not allowed',
-      timestamp: new Date().toISOString()
-    });
-  }
-
-  // Handle Supabase errors
-  if (err.statusCode) {
-    return res.status(err.statusCode).json({
-      error: err.error || 'Database Error',
-      message: err.message,
-      timestamp: new Date().toISOString()
-    });
-  }
-
-  // Handle validation errors
-  if (err.name === 'ValidationError') {
-    return res.status(400).json({
-      error: 'Validation Error',
-      message: err.message,
-      details: err.details,
-      timestamp: new Date().toISOString()
-    });
-  }
-
-  // Generic error response
   res.status(500).json({
     error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
-    timestamp: new Date().toISOString()
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
   });
 });
 
-const port = process.env.PORT || 3000
+const port = process.env.PORT || 3000;
 app.listen(port, () => {
   logger.info(`Server running on port ${port}`);
 });
