@@ -8,14 +8,15 @@ class APIClient {
   async initialize() {
     if (this.initialized) return;
 
-    // Use environment variable or fallback to default
-    let baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    // Use environment variable or fallback to Vercel deployment URL
+    let baseURL = import.meta.env.VITE_API_URL || 'https://querybuilder-server.vercel.app';
     
     // Ensure baseURL doesn't end with a slash
     baseURL = baseURL.replace(/\/$/, '');
     
     this.baseURL = baseURL;
     this.initialized = true;
+    console.log('API Client initialized with baseURL:', this.baseURL);
   }
 
   async request(endpoint, options = {}) {
@@ -80,43 +81,51 @@ class ApiError extends Error {
 class Api extends APIClient {
   // History endpoints
   async getQueryHistory() {
-    return this.request('/history');
+    return this.request('/api/history');
   }
 
   async saveQuery(query) {
-    return this.request('/history', {
+    return this.request('/api/history', {
       method: 'POST',
-      body: JSON.stringify(query),
+      body: JSON.stringify(query)
     });
   }
 
   async toggleFavorite(id, isFavorite) {
-    return this.request(`/history/${id}/favorite`, {
-      method: 'PATCH',
-      body: JSON.stringify({ is_favorite: isFavorite }),
+    return this.request(`/api/history/${id}/favorite`, {
+      method: 'PUT',
+      body: JSON.stringify({ isFavorite })
     });
   }
 
   async deleteQuery(id) {
-    return this.request(`/history/${id}`, {
-      method: 'DELETE',
+    return this.request(`/api/history/${id}`, {
+      method: 'DELETE'
     });
   }
 
   async shareQuery(id) {
-    return this.request(`/history/${id}/share`);
+    return this.request(`/api/history/${id}/share`, {
+      method: 'POST'
+    });
   }
 
   // Query-related endpoints
   async executeQuery(query, dbConfig) {
-    return this.request('/queries/execute', {
+    return this.request('/api/queries/execute', {
       method: 'POST',
       body: JSON.stringify({ query, dbConfig })
     });
   }
 
   async testConnection() {
-    return this.request('/test');
+    try {
+      const result = await this.request('/api/test');
+      return result;
+    } catch (error) {
+      console.error('Test connection failed:', error);
+      throw error;
+    }
   }
 }
 

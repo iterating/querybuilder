@@ -7,11 +7,11 @@
   "packageManager": "pnpm",
   "scripts": {
     "dev:client": "cd client && vite",
-    "dev:server": "node server/server.js",
+    "dev:server": "node server/src/server.js",
     "dev": "concurrently \"pnpm run dev:server\" \"pnpm run dev:client\"",
     "build": "cd client && npm install && vite build && mv dist ../dist",
     "vercel-build": "cd client && npm install && vite build && mv dist ../dist",
-    "start": "node server/server.js",
+    "start": "node server/src/server.js",
     "lint": "eslint .",
     "preview": "cd client && vite preview",
     "test": "vitest",

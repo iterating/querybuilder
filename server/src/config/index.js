@@ -9,7 +9,7 @@ const envSchema = Joi.object({
     .default('development'),
   PORT: Joi.number().default(3000),
   SUPABASE_URL: Joi.string().required(),
-  SUPABASE_ANON_KEY: Joi.string().required(),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: Joi.string().required(),
   LOG_LEVEL: Joi.string()
     .valid('error', 'warn', 'info', 'debug')
     .default('info'),
@@ -27,7 +27,7 @@ export const config = {
   port: env.PORT,
   supabase: {
     url: env.SUPABASE_URL,
-    anonKey: env.SUPABASE_ANON_KEY,
+    anonKey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   },
   logging: {
     level: env.LOG_LEVEL,

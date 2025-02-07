@@ -7,7 +7,12 @@ import { dbService } from './services/database.js';
 // Test endpoint
 app.get('/api/test', (req, res) => {
   logger.info('Test endpoint hit!');
-  res.json({ message: 'API is working!' });
+  res.json({ 
+    status: 'ok',
+    message: 'API is working!',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
 });
 
 // Health check endpoint
