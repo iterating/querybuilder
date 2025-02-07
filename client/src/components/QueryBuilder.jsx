@@ -279,7 +279,15 @@ export function QueryBuilder() {
           rel="noopener noreferrer"
           className="text-zinc-400 hover:text-zinc-300 text-sm"
         >
-          Designed and Built by Jonathan Young (iterating)
+          Designed and Built by Jonathan Young (iterating) 
+        </a> 
+        <a 
+          href="https://tableaucleaner.vercel.app"
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-zinc-400 hover:text-zinc-300 text-sm mr-2"
+        >
+          | Tableau Data Cleaner App
         </a>
       </div>
     </div>

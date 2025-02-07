@@ -53,5 +53,9 @@
     "pg": "",
     "recharts": "",
     "winston": ""
+  },
+  "author": {
+    "name": "Jonathan Young",
+    "github": "https://github.com/iterating/"
   }
 }
