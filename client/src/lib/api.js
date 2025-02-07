@@ -9,7 +9,7 @@ class APIClient {
     if (this.initialized) return;
 
     // Use environment variable or fallback to deployment URL
-    let baseURL = import.meta.env.VITE_API_URL || 'https://querybuilder.vercel.app/api';
+    let baseURL = import.meta.env.VITE_API_URL || 'https://querybuilder.vercel.app';
     
     // Ensure baseURL doesn't end with a slash
     baseURL = baseURL.replace(/\/$/, '');
@@ -24,9 +24,10 @@ class APIClient {
 
     // Ensure endpoint starts with a slash
     const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    // Don't add /api prefix if the endpoint already has it
     const url = endpoint.startsWith('http') 
       ? endpoint 
-      : `${this.baseURL}${normalizedEndpoint}`;
+      : `${this.baseURL}${normalizedEndpoint.startsWith('/api') ? normalizedEndpoint : `/api${normalizedEndpoint}`}`;
 
     const defaultHeaders = {
       'Content-Type': 'application/json',
@@ -50,21 +51,21 @@ class APIClient {
         console.error('API error response:', {
           status: response.status,
           statusText: response.statusText,
-          error: errorText
+          body: errorText
         });
-        throw new ApiError(`API error (${response.status}): ${errorText}`, response.status, errorText);
+        throw new ApiError(
+          errorText || response.statusText,
+          response.status
+        );
       }
 
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        console.error('Invalid content type:', contentType);
-        throw new ApiError('Invalid response: Expected JSON but got ' + contentType);
-      }
-
-      return await response.json();
+      const data = await response.json();
+      return data;
     } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(error.message);
     }
   }
 }
