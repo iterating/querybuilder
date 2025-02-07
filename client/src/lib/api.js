@@ -8,8 +8,8 @@ class APIClient {
   async initialize() {
     if (this.initialized) return;
 
-    // Use environment variable or fallback to Vercel deployment URL
-    let baseURL = import.meta.env.VITE_API_URL || 'https://querybuilder-server.vercel.app';
+    // Use environment variable or fallback to deployment URL
+    let baseURL = import.meta.env.VITE_API_URL || 'https://querybuilder.vercel.app/api';
     
     // Ensure baseURL doesn't end with a slash
     baseURL = baseURL.replace(/\/$/, '');

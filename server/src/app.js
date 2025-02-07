@@ -11,7 +11,8 @@ const getAllowedOrigins = () => {
   const origins = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
-    'https://querybuilder.vercel.app'  // Add the production URL
+    'https://querybuilder.vercel.app',
+    'https://querybuilder-server.vercel.app'
   ];
 
   // Add production origins
@@ -25,6 +26,11 @@ const getAllowedOrigins = () => {
       // Allow all Vercel preview deployments
       /^https:\/\/[a-zA-Z0-9-]+-[a-zA-Z0-9-]+\.vercel\.app$/
     );
+  }
+
+  // Add any ALLOWED_ORIGINS from environment variables
+  if (process.env.ALLOWED_ORIGINS) {
+    origins.push(...process.env.ALLOWED_ORIGINS.split(','));
   }
 
   return origins.filter(Boolean); // Remove any undefined entries
@@ -43,11 +49,29 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'));
     }
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
   credentials: true,
+  maxAge: 86400, // 24 hours
   optionsSuccessStatus: 200
 }));
+
+// Add CORS headers to all responses as a backup
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const allowedOrigins = getAllowedOrigins();
+  
+  if (origin && (allowedOrigins.includes(origin) || (allowedOrigins.find(regexp => regexp instanceof RegExp) && allowedOrigins.find(regexp => regexp instanceof RegExp).test(origin)))) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    res.header('Access-Control-Expose-Headers', 'Content-Range, X-Content-Range');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Max-Age', '86400');
+  }
+  next();
+});
 
 app.use(express.json());
 

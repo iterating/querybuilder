@@ -36,28 +36,73 @@ class QueryExecutor {
   }
 
   async executeMongoQuery(client, query, tableName) {
+    if (!tableName) {
+      throw new Error('Collection name is required for MongoDB queries');
+    }
+
     const db = client.db();
     const collection = db.collection(tableName);
 
     try {
-      // Try to parse as a MongoDB query object
+      // Handle MongoDB shell syntax
       if (typeof query === 'string') {
-        // Handle different MongoDB operations
-        if (query.startsWith('db.')) {
-          // Execute as a MongoDB command
-          const command = eval(`(${query.replace('db.', '').replace('.find', '')})`);
-          return await collection.find(command).toArray();
-        } else {
-          // Try to parse as a JSON query
-          const parsedQuery = JSON.parse(query.replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3'));
-          return await collection.find(parsedQuery).toArray();
+        if (query.startsWith('db.collection.aggregate')) {
+          // Extract the array from db.collection.aggregate([...])
+          const match = query.match(/\[([\s\S]*)\]/);
+          if (match) {
+            const pipelineStr = match[1];
+            // Convert the pipeline string to valid JSON by:
+            // 1. Replace single quotes with double quotes
+            // 2. Add quotes around unquoted keys
+            const jsonStr = `[${pipelineStr}]`
+              .replace(/'/g, '"')
+              .replace(/(\s*?{\s*?|\s*?,\s*?)(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '$1"$3":')
+              .replace(/\$([a-zA-Z0-9_]+)/g, '"$$1"');
+            try {
+              const pipeline = JSON.parse(jsonStr);
+              return await collection.aggregate(pipeline).toArray();
+            } catch (parseError) {
+              throw new Error(`Failed to parse aggregation pipeline: ${parseError.message}`);
+            }
+          }
+        }
+        
+        try {
+          // Try parsing as JSON
+          const parsedQuery = JSON.parse(query);
+          if (Array.isArray(parsedQuery)) {
+            return await collection.aggregate(parsedQuery).toArray();
+          } else if (parsedQuery.aggregate) {
+            return await collection.aggregate(parsedQuery.aggregate).toArray();
+          } else if (parsedQuery.find) {
+            return await collection.find(parsedQuery.find).toArray();
+          } else {
+            return await collection.find(parsedQuery).toArray();
+          }
+        } catch (parseError) {
+          throw new Error(`Invalid query format. Please use valid JSON or MongoDB shell syntax. Error: ${parseError.message}`);
         }
       } else {
-        return await collection.find(query).toArray();
+        // Handle object/array queries
+        if (Array.isArray(query)) {
+          return await collection.aggregate(query).toArray();
+        } else if (query.aggregate) {
+          return await collection.aggregate(query.aggregate).toArray();
+        } else if (query.find) {
+          return await collection.find(query.find).toArray();
+        } else {
+          return await collection.find(query).toArray();
+        }
       }
-    } catch (e) {
-      logger.error('MongoDB query parsing error:', e);
-      throw new Error('Invalid MongoDB query format');
+    } catch (error) {
+      logger.error('MongoDB query execution error:', {
+        error: error.message,
+        stack: error.stack,
+        dbType: 'mongodb',
+        query,
+        tableName
+      });
+      throw error;
     }
   }
 

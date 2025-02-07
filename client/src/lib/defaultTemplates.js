@@ -29,24 +29,71 @@ export const DEFAULT_TEMPLATES = [
   },
   {
     id: 'template_3',
-    name: 'MongoDB Collection Stats',
-    description: 'Get basic statistics about a MongoDB collection',
-    query: `db.collection.aggregate([
-   {
-     $group: {
-       _id: null,
-       count: { $sum: 1 },
-       distinctValues: { $addToSet: "$field" },
-       avgValue: { $avg: "$numericField" }
-     }
-   }
- ])`,
+    name: 'MongoDB Basic Aggregation',
+    description: 'Basic aggregation example with grouping and sorting',
+    // This is a MongoDB aggregation pipeline in JSON format
+    query: [
+      { 
+        "$match": { 
+          "field": { "$exists": true } 
+        } 
+      },
+      { 
+        "$group": { 
+          "_id": "$category",
+          "count": { "$sum": 1 },
+          "avgValue": { "$avg": "$value" },
+          "maxValue": { "$max": "$value" }
+        }
+      },
+      { 
+        "$sort": { 
+          "count": -1 
+        } 
+      }
+    ],
     category: 'Analytics',
     database_type: 'mongodb',
+    dbConfig: {
+      type: 'mongodb',
+      tableName: 'your_collection_name', // Replace with your collection name
+      url: '' // Will be filled by user
+    },
     is_public: true,
   },
   {
     id: 'template_4',
+    name: 'MongoDB Collection Stats',
+    description: 'Get basic statistics about a MongoDB collection',
+    query: [
+      {
+        "$group": {
+          "_id": null,
+          "totalDocuments": { "$sum": 1 },
+          "uniqueValues": { "$addToSet": "$field" },
+          "averageValue": { "$avg": "$numericField" }
+        }
+      },
+      {
+        "$project": {
+          "_id": 0,
+          "totalDocuments": 1,
+          "uniqueValueCount": { "$size": "$uniqueValues" },
+          "averageValue": { "$round": ["$averageValue", 2] }
+        }
+      }
+    ],
+    category: 'Analytics',
+    database_type: 'mongodb',
+    dbConfig: {
+      type: 'mongodb',
+      tableName: 'your_collection_name',
+      url: ''
+    },
+    is_public: true,
+  },
+  {
+    id: 'template_5',
     name: 'MySQL Performance Analysis',
     description: 'Analyze table performance and indexing',
     query: `SELECT table_name, 
@@ -60,7 +107,7 @@ export const DEFAULT_TEMPLATES = [
     is_public: true,
   },
   {
-    id: 'template_5',
+    id: 'template_6',
     name: 'Data Quality Check',
     description: 'Check for null values and data consistency',
     query: `SELECT column_name, 
@@ -75,7 +122,7 @@ export const DEFAULT_TEMPLATES = [
     is_public: true,
   },
   {
-    id: 'template_6',
+    id: 'template_7',
     name: 'Recent Changes Monitor',
     description: 'Monitor recent changes in the table',
     query: `SELECT *
@@ -87,7 +134,7 @@ export const DEFAULT_TEMPLATES = [
     is_public: true,
   },
   {
-    id: 'template_7',
+    id: 'template_8',
     name: 'Duplicate Records Finder',
     description: 'Find and analyze duplicate records',
     query: `SELECT column1, column2, COUNT(*) as occurrence_count
@@ -100,7 +147,7 @@ export const DEFAULT_TEMPLATES = [
     is_public: true,
   },
   {
-    id: 'template_8',
+    id: 'template_9',
     name: 'MongoDB Aggregation Pipeline',
     description: 'Complex data analysis using MongoDB aggregation',
     query: `db.collection.aggregate([

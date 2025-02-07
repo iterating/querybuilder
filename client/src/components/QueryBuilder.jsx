@@ -43,7 +43,11 @@ export function QueryBuilder() {
   };
 
   const handleTemplateSelect = (template) => {
-    setQuery(template.query);
+    // Convert query to string if it's an object/array
+    const queryString = typeof template.query === 'object' 
+      ? JSON.stringify(template.query, null, 2) 
+      : template.query;
+    setQuery(queryString);
     if (template.dbConfig) {
       setDbConfig(template.dbConfig);
     }
@@ -78,6 +82,12 @@ export function QueryBuilder() {
       ));
     }
     setIsTemplateDialogOpen(false);
+  };
+
+  const isQueryEmpty = () => {
+    if (!query) return true;
+    if (typeof query !== 'string') return false;
+    return query.trim().length === 0;
   };
 
   const filteredTemplates = templates.filter(
@@ -147,7 +157,7 @@ export function QueryBuilder() {
                   </Button>
                   <Button
                     onClick={handleQuerySubmit}
-                    disabled={loading || !query.trim()}
+                    disabled={loading || isQueryEmpty()}
                     className="bg-purple-500 hover:bg-purple-600 text-white"
                     size="sm"
                   >
