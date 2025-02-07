@@ -271,6 +271,17 @@ export function QueryBuilder() {
         onSave={handleTemplateSave}
         mode={templateDialogMode}
       />
+
+      <div className="text-center mt-8 pb-4">
+        <a 
+          href="https://github.com/iterating" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-zinc-400 hover:text-zinc-300 text-sm"
+        >
+          Designed and Built by Jonathan Young (iterating)
+        </a>
+      </div>
     </div>
 
   );
