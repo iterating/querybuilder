@@ -164,3 +164,6 @@ GET `/api/data/schemas` - Get database schema information
 - Custom queries are executed through a database function with proper security policies
 - Authentication is handled by Supabase Auth
 - Row Level Security (RLS) policies ensure data access control
+
+## Screenshot
+![](https://raw.githubusercontent.com/iterating/querybuilder/refs/heads/main/public/portfoio.querybuilder.screenshot.png)
