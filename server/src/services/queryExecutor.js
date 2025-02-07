@@ -40,6 +40,11 @@ class QueryExecutor {
       throw new Error('Collection name is required for MongoDB queries');
     }
 
+    logger.info('Executing MongoDB query:', {
+      tableName,
+      query: typeof query === 'string' ? query : JSON.stringify(query)
+    });
+
     const db = client.db();
     const collection = db.collection(tableName);
 
@@ -60,8 +65,12 @@ class QueryExecutor {
               .replace(/\$([a-zA-Z0-9_]+)/g, '"$$1"');
             try {
               const pipeline = JSON.parse(jsonStr);
-              return await collection.aggregate(pipeline).toArray();
+              logger.info('Executing aggregation pipeline:', { pipeline });
+              const result = await collection.aggregate(pipeline).toArray();
+              logger.info('Aggregation result:', { count: result.length });
+              return result;
             } catch (parseError) {
+              logger.error('Failed to parse pipeline:', { error: parseError.message, jsonStr });
               throw new Error(`Failed to parse aggregation pipeline: ${parseError.message}`);
             }
           }
@@ -70,35 +79,51 @@ class QueryExecutor {
         try {
           // Try parsing as JSON
           const parsedQuery = JSON.parse(query);
+          logger.info('Parsed query:', { parsedQuery });
+          
           if (Array.isArray(parsedQuery)) {
-            return await collection.aggregate(parsedQuery).toArray();
-          } else if (parsedQuery.aggregate) {
-            return await collection.aggregate(parsedQuery.aggregate).toArray();
-          } else if (parsedQuery.find) {
-            return await collection.find(parsedQuery.find).toArray();
+            logger.info('Executing array query as aggregation');
+            const result = await collection.aggregate(parsedQuery).toArray();
+            logger.info('Array query result:', { count: result.length });
+            return result;
+          } else if (parsedQuery.find !== undefined) {
+            logger.info('Executing find query');
+            const result = await collection.find(parsedQuery.find).toArray();
+            logger.info('Find query result:', { count: result.length });
+            return result;
           } else {
-            return await collection.find(parsedQuery).toArray();
+            logger.info('Executing default find query');
+            const result = await collection.find(parsedQuery).toArray();
+            logger.info('Default query result:', { count: result.length });
+            return result;
           }
         } catch (parseError) {
+          logger.error('Failed to parse query:', { error: parseError.message, query });
           throw new Error(`Invalid query format. Please use valid JSON or MongoDB shell syntax. Error: ${parseError.message}`);
         }
       } else {
         // Handle object/array queries
         if (Array.isArray(query)) {
-          return await collection.aggregate(query).toArray();
-        } else if (query.aggregate) {
-          return await collection.aggregate(query.aggregate).toArray();
-        } else if (query.find) {
-          return await collection.find(query.find).toArray();
+          logger.info('Executing object array query as aggregation');
+          const result = await collection.aggregate(query).toArray();
+          logger.info('Object array query result:', { count: result.length });
+          return result;
+        } else if (query.find !== undefined) {
+          logger.info('Executing object find query');
+          const result = await collection.find(query.find).toArray();
+          logger.info('Object find query result:', { count: result.length });
+          return result;
         } else {
-          return await collection.find(query).toArray();
+          logger.info('Executing default object query');
+          const result = await collection.find(query).toArray();
+          logger.info('Default object query result:', { count: result.length });
+          return result;
         }
       }
     } catch (error) {
       logger.error('MongoDB query execution error:', {
         error: error.message,
         stack: error.stack,
-        dbType: 'mongodb',
         query,
         tableName
       });
