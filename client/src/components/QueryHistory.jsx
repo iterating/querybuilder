@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Share2, Star, StarOff, Copy, Trash2, Save } from 'lucide-react';
-import { Storage } from '../lib/storage';
+import { api } from '../lib/api';
 
 export function QueryHistory({ onSelectQuery, currentQuery }) {
   const [queries, setQueries] = useState([]);
@@ -23,13 +23,27 @@ export function QueryHistory({ onSelectQuery, currentQuery }) {
   }, []);
 
   const loadQueries = () => {
-    const savedQueries = Storage.getHistory();
-    setQueries(savedQueries);
+    console.log('Loading query history from localStorage...');
+    try {
+      const savedQueries = JSON.parse(localStorage.getItem('queryHistory')) || [];
+      console.log(`Successfully loaded ${savedQueries.length} queries from localStorage`);
+      setQueries(savedQueries);
+    } catch (error) {
+      console.error('Failed to load query history from localStorage:', error);
+      setQueries([]);
+    }
   };
 
   const loadTemplates = () => {
-    const savedTemplates = Storage.getTemplates();
-    setTemplates(savedTemplates);
+    console.log('Loading templates from localStorage...');
+    try {
+      const savedTemplates = JSON.parse(localStorage.getItem('queryTemplates')) || [];
+      console.log(`Successfully loaded ${savedTemplates.length} templates`);
+      setTemplates(savedTemplates);
+    } catch (error) {
+      console.error('Failed to load templates:', error);
+      setTemplates([]);
+    }
   };
 
   const handleInputChange = (e) => {
@@ -48,65 +62,90 @@ export function QueryHistory({ onSelectQuery, currentQuery }) {
   };
 
   const saveAsTemplate = () => {
-    if (!currentQuery || !newTemplate.name.trim()) return;
-
-    const template = {
-      id: Date.now().toString(),
-      ...newTemplate,
-      query: currentQuery,
-      is_public: true
-    };
-
-    const updatedTemplates = [template, ...templates];
-    setTemplates(updatedTemplates);
-    Storage.saveTemplates(updatedTemplates);
-    resetNewTemplate();
+    try {
+      const templateData = {
+        ...newTemplate,
+        id: `template_${Date.now()}`,
+        created_at: new Date().toISOString(),
+        query: currentQuery
+      };
+      
+      const updatedTemplates = [...templates, templateData];
+      localStorage.setItem('queryTemplates', JSON.stringify(updatedTemplates));
+      setTemplates(updatedTemplates);
+      resetNewTemplate();
+    } catch (error) {
+      console.error('Error saving template:', error);
+    }
   };
 
   const handleAction = {
     saveQuery: (query, name = '') => {
-      const newQuery = {
-        id: Date.now().toString(),
-        name: name || 'Unnamed Query',
-        query,
-        is_favorite: false,
-        created_at: new Date().toISOString()
-      };
-      const updatedQueries = [newQuery, ...queries];
-      setQueries(updatedQueries);
-      Storage.saveHistory(updatedQueries);
+      console.log('Saving query to localStorage');
+      try {
+        const savedQueries = JSON.parse(localStorage.getItem('queryHistory')) || [];
+        const newQuery = { 
+          id: Date.now(),
+          query, 
+          name,
+          created_at: new Date().toISOString(),
+          is_favorite: false
+        };
+        localStorage.setItem('queryHistory', JSON.stringify([...savedQueries, newQuery]));
+        loadQueries();
+      } catch (error) {
+        console.error('Error saving query:', error);
+      }
     },
 
-    toggleFavorite: (id, currentStatus) => {
-      const updatedQueries = queries.map(q => 
-        q.id === id ? { ...q, is_favorite: !currentStatus } : q
-      );
-      setQueries(updatedQueries);
-      Storage.saveHistory(updatedQueries);
-    },
-
-    shareQuery: async (queryId) => {
-      const query = queries.find(q => q.id === queryId);
-      if (query) {
-        const shareText = `${query.name}\n\n${query.query}`;
-        try {
-          await navigator.clipboard.writeText(shareText);
-        } catch (err) {
-          console.error('Error copying to clipboard:', err);
-        }
+    toggleFavorite: (id) => {
+      try {
+        const savedQueries = JSON.parse(localStorage.getItem('queryHistory')) || [];
+        const updated = savedQueries.map(q => q.id === id 
+          ? { ...q, is_favorite: !q.is_favorite }
+          : q
+        );
+        localStorage.setItem('queryHistory', JSON.stringify(updated));
+        loadQueries();
+      } catch (error) {
+        console.error('Error toggling favorite:', error);
       }
     },
 
     deleteQuery: (id) => {
-      const updatedQueries = queries.filter(q => q.id !== id);
-      setQueries(updatedQueries);
-      Storage.saveHistory(updatedQueries);
+      try {
+        const savedQueries = JSON.parse(localStorage.getItem('queryHistory')) || [];
+        const filtered = savedQueries.filter(q => q.id !== id);
+        localStorage.setItem('queryHistory', JSON.stringify(filtered));
+        loadQueries();
+      } catch (error) {
+        console.error('Error deleting query:', error);
+      }
+    },
+
+    shareQuery: async (queryId) => {
+      console.log('Sharing query:', queryId);
+      try {
+        const query = queries.find(q => q.id === queryId);
+        if (query) {
+          const shareText = `${query.name}\n\n${query.query}`;
+          try {
+            await navigator.clipboard.writeText(shareText);
+            console.log('Share text copied to clipboard:', shareText);
+          } catch (err) {
+            console.error('Error copying to clipboard:', err);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to share query:', error);
+      }
     },
 
     deleteTemplate: (id) => {
+      console.log('Deleting template:', id);
       const updatedTemplates = templates.filter(t => t.id !== id);
+      localStorage.setItem('queryTemplates', JSON.stringify(updatedTemplates));
       setTemplates(updatedTemplates);
-      Storage.saveTemplates(updatedTemplates);
     }
   };
 
@@ -245,7 +284,7 @@ export function QueryHistory({ onSelectQuery, currentQuery }) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleAction.toggleFavorite(item.id, item.is_favorite)}
+                        onClick={() => handleAction.toggleFavorite(item.id)}
                         className="text-zinc-100 hover:bg-zinc-700"
                         title={item.is_favorite ? "Remove from favorites" : "Add to favorites"}
                       >

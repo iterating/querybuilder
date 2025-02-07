@@ -9,7 +9,7 @@ A secure and scalable platform that enables data analysts and developers to exec
 - User authentication via Supabase Auth
 - Query validation and rate limiting
 - Logging and monitoring
-- Query history tracking
+- Query history tracking in local storage
 
 ## Setup
 

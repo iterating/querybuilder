@@ -7,6 +7,8 @@ import { PlayIcon, SaveIcon, HistoryIcon, BookTemplate, PencilIcon, PlusIcon } f
 import { DEFAULT_TEMPLATES } from '../lib/defaultTemplates';
 import { TemplateDialog } from './TemplateDialog';
 import { api } from '../lib/api';
+import { QueryHistory } from './QueryHistory';
+
 
 export function QueryBuilder() {
   const [query, setQuery] = useState('');
@@ -21,6 +23,8 @@ export function QueryBuilder() {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [templateDialogMode, setTemplateDialogMode] = useState('edit');
+  const [showHistory, setShowHistory] = useState(false);
+  
 
   const handleQuerySubmit = async () => {
     setLoading(true);
@@ -140,7 +144,7 @@ export function QueryBuilder() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => {}}
+                    onClick={() => setShowHistory(!showHistory)}
                     className="text-zinc-400 hover:text-zinc-100"
                   >
                     <HistoryIcon className="w-4 h-4 mr-1" />
@@ -237,6 +241,29 @@ export function QueryBuilder() {
         </div>
       </div>
 
+      {/* Query History Panel */}
+      {showHistory && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50">
+          <div className="absolute right-0 top-0 h-full w-full max-w-md bg-zinc-900 p-6 shadow-xl">
+            <QueryHistory
+              onSelectQuery={(selectedQuery) => {
+                setQuery(selectedQuery);
+                setShowHistory(false);
+              }}
+              currentQuery={query}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowHistory(false)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-100"
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      )}
+
       <TemplateDialog
         isOpen={isTemplateDialogOpen}
         onClose={() => setIsTemplateDialogOpen(false)}
@@ -245,5 +272,6 @@ export function QueryBuilder() {
         mode={templateDialogMode}
       />
     </div>
+
   );
 }
