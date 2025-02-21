@@ -20,7 +20,7 @@ Key Benefits:
 
 Try it out  
 
-[![](https://raw.githubusercontent.com/iterating/querybuilder/refs/heads/main/public/portfoio.querybuilder.qrcode.100.png)](https://querybuilder.vercel.app)
+[![](https://raw.githubusercontent.com/iterating/querybuilder/refs/heads/main/public/portfolio.querybuilder.qrcode.100.png)](https://querybuilder.vercel.app)
 
 
 ## Features
