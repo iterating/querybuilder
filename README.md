@@ -179,4 +179,4 @@ GET `/api/data/schemas` - Get database schema information
 
 
 ## Screenshot
-![](https://raw.githubusercontent.com/iterating/querybuilder/refs/heads/main/public/portfoio.querybuilder.screenshot.png)
+![](https://raw.githubusercontent.com/iterating/querybuilder/refs/heads/main/public/portfolio.querybuilder.screenshot.png)
