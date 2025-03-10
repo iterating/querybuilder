@@ -136,7 +136,8 @@ export function QueryBuilder() {
                     backgroundColor: '#27272a',
                     fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Consolas,Liberation Mono,Menlo,monospace',
                     borderRadius: '0.5rem',
-                    minHeight: '200px'
+                    minHeight: '400px',
+                    resize: 'both'
                   }}
                   className="focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
@@ -279,7 +280,7 @@ export function QueryBuilder() {
           rel="noopener noreferrer"
           className="text-zinc-400 hover:text-zinc-300 text-sm"
         >
-          Designed and Built by Jonathan Young (iterating) 
+          Designed and Built by Jonathan Young (iterating) |
         </a> 
         <a 
           href="https://tableaucleaner.vercel.app"
