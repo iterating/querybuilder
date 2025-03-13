@@ -1,31 +1,42 @@
 export const DEFAULT_TEMPLATES = [
   {
     id: 'template_1',
-    name: 'Basic Table Statistics',
-    description: 'Get basic statistics about a table including row count and column statistics',
-    query: `SELECT COUNT(*) as total_rows,
-        COUNT(DISTINCT column_name) as unique_values,
-        MIN(column_name) as min_value,
-        MAX(column_name) as max_value,
-        AVG(numeric_column) as average
- FROM {table_name}`,
+    name: 'Basic Table Information',
+    description: 'Get basic table statistics including row count',
+    query: `SELECT COUNT(*) as total_rows FROM {table_name}`,
     category: 'Analytics',
     database_type: 'postgres',
     is_public: true,
+    dbConfig: {
+      type: 'postgres',
+      url: '',
+      tableName: '' // Will be filled by user
+    }
   },
   {
     id: 'template_2',
-    name: 'Time Series Analysis',
-    description: 'Analyze trends over time with daily aggregation',
-    query: `SELECT DATE_TRUNC('day', timestamp_column) as date,
-        COUNT(*) as daily_count,
-        SUM(value_column) as daily_sum
- FROM {table_name}
- GROUP BY DATE_TRUNC('day', timestamp_column)
- ORDER BY date`,
-    category: 'Analytics',
+    name: 'Table Column Information',
+    description: 'View all columns and their data types in a table',
+    query: `SELECT 
+  column_name, 
+  data_type, 
+  character_maximum_length,
+  column_default,
+  is_nullable
+FROM 
+  information_schema.columns
+WHERE 
+  table_name = '{table_name}'
+ORDER BY 
+  ordinal_position`,
+    category: 'Schema',
     database_type: 'postgres',
     is_public: true,
+    dbConfig: {
+      type: 'postgres',
+      url: '',
+      tableName: '' // Will be filled by user
+    }
   },
   {
     id: 'template_3',
@@ -108,43 +119,69 @@ export const DEFAULT_TEMPLATES = [
   },
   {
     id: 'template_6',
-    name: 'Data Quality Check',
-    description: 'Check for null values and data consistency',
-    query: `SELECT column_name, 
-        COUNT(*) as total_rows,
-        COUNT(column_name) as non_null_rows,
-        COUNT(*) - COUNT(column_name) as null_rows,
-        COUNT(DISTINCT column_name) as unique_values
- FROM {table_name}
- GROUP BY column_name`,
+    name: 'Sample Data Preview',
+    description: 'Preview the first 10 rows of data from a table',
+    query: `SELECT * FROM {table_name} LIMIT 10`,
     category: 'Data Quality',
     database_type: 'postgres',
     is_public: true,
+    dbConfig: {
+      type: 'postgres',
+      url: '',
+      tableName: '' // Will be filled by user
+    }
   },
   {
     id: 'template_7',
-    name: 'Recent Changes Monitor',
-    description: 'Monitor recent changes in the table',
-    query: `SELECT *
- FROM {table_name}
- WHERE updated_at >= NOW() - INTERVAL '24 hours'
- ORDER BY updated_at DESC`,
-    category: 'Monitoring',
+    name: 'Table Size Information',
+    description: 'Get size information about the table',
+    query: `SELECT
+  pg_size_pretty(pg_total_relation_size('{table_name}')) AS total_size,
+  pg_size_pretty(pg_relation_size('{table_name}')) AS table_size,
+  pg_size_pretty(pg_total_relation_size('{table_name}') - pg_relation_size('{table_name}')) AS index_size
+FROM pg_catalog.pg_tables
+WHERE tablename = '{table_name}'
+LIMIT 1`,
+    category: 'Performance',
     database_type: 'postgres',
     is_public: true,
+    dbConfig: {
+      type: 'postgres',
+      url: '',
+      tableName: '' // Will be filled by user
+    }
   },
   {
     id: 'template_8',
-    name: 'Duplicate Records Finder',
-    description: 'Find and analyze duplicate records',
-    query: `SELECT column1, column2, COUNT(*) as occurrence_count
- FROM {table_name}
- GROUP BY column1, column2
- HAVING COUNT(*) > 1
- ORDER BY occurrence_count DESC`,
-    category: 'Data Quality',
+    name: 'Table Indexes',
+    description: 'View all indexes on a table',
+    query: `SELECT
+  i.relname AS index_name,
+  a.attname AS column_name,
+  ix.indisunique AS is_unique,
+  ix.indisprimary AS is_primary
+FROM
+  pg_class t,
+  pg_class i,
+  pg_index ix,
+  pg_attribute a
+WHERE
+  t.oid = ix.indrelid
+  AND i.oid = ix.indexrelid
+  AND a.attrelid = t.oid
+  AND a.attnum = ANY(ix.indkey)
+  AND t.relkind = 'r'
+  AND t.relname = '{table_name}'
+ORDER BY
+  i.relname, a.attnum`,
+    category: 'Performance',
     database_type: 'postgres',
     is_public: true,
+    dbConfig: {
+      type: 'postgres',
+      url: '',
+      tableName: '' // Will be filled by user
+    }
   },
   {
     id: 'template_9',
