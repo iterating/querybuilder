@@ -14,6 +14,32 @@ export const DEFAULT_TEMPLATES = [
     }
   },
   {
+    id: 'template_2',
+    name: 'Table Column Information',
+    description: 'View all columns and their data types in a table',
+    query: `-- SPECIAL_TEMPLATE: POSTGRES_METADATA
+SELECT 
+  column_name, 
+  data_type, 
+  character_maximum_length,
+  column_default,
+  is_nullable
+FROM 
+  information_schema.columns
+WHERE 
+  table_name = '{table_name}'
+ORDER BY 
+  ordinal_position`,
+    category: 'Schema',
+    database_type: 'postgres',
+    is_public: true,
+    dbConfig: {
+      type: 'postgres',
+      url: '',
+      tableName: '{table_name}' // Will be filled by user
+    }
+  },
+  {
     id: 'template_3',
     name: 'MongoDB Basic Aggregation',
     description: 'Basic aggregation example with grouping and sorting',
@@ -42,6 +68,7 @@ export const DEFAULT_TEMPLATES = [
     database_type: 'mongodb',
     dbConfig: {
       type: 'mongodb',
+      tableName: '{collection_name}', // Replace with your collection name
       tableName: '{collection_name}', // Replace with your collection name
       url: '' // Will be filled by user
     },
@@ -74,6 +101,7 @@ export const DEFAULT_TEMPLATES = [
     dbConfig: {
       type: 'mongodb',
       tableName: '{collection_name}',
+      tableName: '{collection_name}',
       url: ''
     },
     is_public: true,
@@ -104,6 +132,7 @@ export const DEFAULT_TEMPLATES = [
       type: 'postgres',
       url: '',
       tableName: '{table_name}' // Will be filled by user
+      tableName: '{table_name}' // Will be filled by user
     }
   },
   {
@@ -111,6 +140,13 @@ export const DEFAULT_TEMPLATES = [
     name: 'Table Size Information',
     description: 'Get size information about the table',
     query: `SELECT
+  pg_size_pretty(pg_relation_size(format('%I', '{table_name}'))) AS table_size,
+  pg_size_pretty(pg_indexes_size(format('%I', '{table_name}'))) AS index_size,
+  pg_size_pretty(pg_total_relation_size(format('%I', '{table_name}'))) AS total_size
+FROM 
+  pg_catalog.pg_tables 
+WHERE 
+  tablename = '{table_name}'
   pg_size_pretty(pg_relation_size(format('%I', '{table_name}'))) AS table_size,
   pg_size_pretty(pg_indexes_size(format('%I', '{table_name}'))) AS index_size,
   pg_size_pretty(pg_total_relation_size(format('%I', '{table_name}'))) AS total_size
@@ -126,6 +162,7 @@ LIMIT 1`,
       type: 'postgres',
       url: '',
       tableName: '{table_name}' // Will be filled by user
+      tableName: '{table_name}' // Will be filled by user
     }
   },
   {
@@ -139,7 +176,14 @@ FROM
   pg_indexes
 WHERE 
   tablename = '{table_name}'
+  indexname AS index_name,
+  indexdef AS index_definition 
+FROM 
+  pg_indexes
+WHERE 
+  tablename = '{table_name}'
 ORDER BY
+  indexname`,
   indexname`,
     category: 'Performance',
     database_type: 'postgres',
@@ -147,6 +191,7 @@ ORDER BY
     dbConfig: {
       type: 'postgres',
       url: '',
+      tableName: '{table_name}' // Will be filled by user
       tableName: '{table_name}' // Will be filled by user
     }
   },

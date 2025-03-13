@@ -120,15 +120,40 @@ class Api extends APIClient {
         throw new Error('Table name required for PostgreSQL queries');
       }
       
-      const escapedName = dbConfig.tableName.replace(/'/g, "''");
+      // Get the table name and properly escape it
+      const tableName = dbConfig.tableName;
       
-      // Only replace {table_name} in VALUE contexts
+      // Determine if this is a metadata query that needs special handling
+      const isMetadataQuery = query.includes('pg_indexes') || 
+                             query.includes('information_schema') || 
+                             query.includes('pg_catalog') || 
+                             query.includes('pg_class');
+      
+      if (isMetadataQuery) {
+        // For metadata queries, properly escape the table name as a string literal (with single quotes)
+        const escapedName = tableName.replace(/'/g, "''");
+        // Handle the specific case where we're comparing tablename or table_name in WHERE clauses
+        processedQuery = query
+          .replace(/tablename = '{table_name}'/g, `tablename = '${escapedName}'`)
+          .replace(/table_name = '{table_name}'/g, `table_name = '${escapedName}'`)
+          .replace(/t\.relname = '{table_name}'/g, `t.relname = '${escapedName}'`);
+        
+        // If there are still {table_name} placeholders that don't match the above patterns
+        if (processedQuery.includes('{table_name}')) {
+          processedQuery = processedQuery.replace(/{table_name}/g, `'${escapedName}'`);
+        }
+      } else {
+        // For regular table queries: Use identifier quotes (double quotes)
+        const quotedName = tableName.replace(/"/g, '""');
+        processedQuery = query.replace(/{table_name}/g, `"${quotedName}"`);
+      }
+      
+      // Remove any special template markers
       processedQuery = processedQuery
-        .replace(/table_name = '{table_name}'/g, `table_name = '${escapedName}'`)
-        .replace(/tablename = '{table_name}'/g, `tablename = '${escapedName}'`)
-        .replace(/'{table_name}'/g, `'${escapedName}'`);
-
-      console.log('PostgreSQL query processed safely:', processedQuery);
+        .replace(/-- SPECIAL_TEMPLATE: POSTGRES_METADATA\n/g, '')
+        .replace(/-- SPECIAL_TEMPLATE: POSTGRES_SIZE_FUNCTIONS\n/g, '');
+      
+      console.log('Processed PostgreSQL query:', processedQuery);
     }
     
     return this.request('/api/queries/execute', {
