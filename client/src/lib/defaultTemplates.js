@@ -14,32 +14,6 @@ export const DEFAULT_TEMPLATES = [
     }
   },
   {
-    id: 'template_2',
-    name: 'Table Column Information',
-    description: 'View all columns and their data types in a table',
-    query: `-- SPECIAL_TEMPLATE: POSTGRES_METADATA
-SELECT 
-  column_name, 
-  data_type, 
-  character_maximum_length,
-  column_default,
-  is_nullable
-FROM 
-  information_schema.columns
-WHERE 
-  table_name = '{table_name}'
-ORDER BY 
-  ordinal_position`,
-    category: 'Schema',
-    database_type: 'postgres',
-    is_public: true,
-    dbConfig: {
-      type: 'postgres',
-      url: '',
-      tableName: '{table_name}' // Will be filled by user
-    }
-  },
-  {
     id: 'template_3',
     name: 'MongoDB Basic Aggregation',
     description: 'Basic aggregation example with grouping and sorting',
