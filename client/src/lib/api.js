@@ -113,27 +113,27 @@ class Api extends APIClient {
 
   // Query-related endpoints
   async executeQuery(query, dbConfig) {
-    // Special handling for PostgreSQL with {table_name} placeholders
     let processedQuery = query;
     
     if (dbConfig.type === 'postgres' && query.includes('{table_name}')) {
       if (!dbConfig.tableName) {
-        throw new Error('Table name is required when using {table_name} placeholders with PostgreSQL');
+        throw new Error('Table name required for PostgreSQL queries');
       }
       
-      // Replace placeholders on the client side for PostgreSQL
-      // This ensures the server receives valid SQL directly
-      const escapedTableName = dbConfig.tableName.replace(/"/g, '""');
-      processedQuery = query.replace(/{table_name}/g, `"${escapedTableName}"`);
-      console.log('Processed PostgreSQL query:', processedQuery);
+      const escapedName = dbConfig.tableName.replace(/'/g, "''");
+      
+      // Only replace {table_name} in VALUE contexts
+      processedQuery = processedQuery
+        .replace(/table_name = '{table_name}'/g, `table_name = '${escapedName}'`)
+        .replace(/tablename = '{table_name}'/g, `tablename = '${escapedName}'`)
+        .replace(/'{table_name}'/g, `'${escapedName}'`);
+
+      console.log('PostgreSQL query processed safely:', processedQuery);
     }
     
     return this.request('/api/queries/execute', {
       method: 'POST',
-      body: JSON.stringify({ 
-        query: processedQuery, 
-        dbConfig 
-      })
+      body: JSON.stringify({ query: processedQuery, dbConfig })
     });
   }
 

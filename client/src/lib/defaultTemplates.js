@@ -10,32 +10,7 @@ export const DEFAULT_TEMPLATES = [
     dbConfig: {
       type: 'postgres',
       url: '',
-      tableName: '' // Will be filled by user
-    }
-  },
-  {
-    id: 'template_2',
-    name: 'Table Column Information',
-    description: 'View all columns and their data types in a table',
-    query: `SELECT 
-  column_name, 
-  data_type, 
-  character_maximum_length,
-  column_default,
-  is_nullable
-FROM 
-  information_schema.columns
-WHERE 
-  table_name = '{table_name}'
-ORDER BY 
-  ordinal_position`,
-    category: 'Schema',
-    database_type: 'postgres',
-    is_public: true,
-    dbConfig: {
-      type: 'postgres',
-      url: '',
-      tableName: '' // Will be filled by user
+      tableName: '{table_name}' // Will be filled by user
     }
   },
   {
@@ -67,7 +42,7 @@ ORDER BY
     database_type: 'mongodb',
     dbConfig: {
       type: 'mongodb',
-      tableName: 'your_collection_name', // Replace with your collection name
+      tableName: '{collection_name}', // Replace with your collection name
       url: '' // Will be filled by user
     },
     is_public: true,
@@ -98,7 +73,7 @@ ORDER BY
     database_type: 'mongodb',
     dbConfig: {
       type: 'mongodb',
-      tableName: 'your_collection_name',
+      tableName: '{collection_name}',
       url: ''
     },
     is_public: true,
@@ -128,7 +103,7 @@ ORDER BY
     dbConfig: {
       type: 'postgres',
       url: '',
-      tableName: '' // Will be filled by user
+      tableName: '{table_name}' // Will be filled by user
     }
   },
   {
@@ -136,11 +111,13 @@ ORDER BY
     name: 'Table Size Information',
     description: 'Get size information about the table',
     query: `SELECT
-  pg_size_pretty(pg_total_relation_size('{table_name}')) AS total_size,
-  pg_size_pretty(pg_relation_size('{table_name}')) AS table_size,
-  pg_size_pretty(pg_total_relation_size('{table_name}') - pg_relation_size('{table_name}')) AS index_size
-FROM pg_catalog.pg_tables
-WHERE tablename = '{table_name}'
+  pg_size_pretty(pg_relation_size(format('%I', '{table_name}'))) AS table_size,
+  pg_size_pretty(pg_indexes_size(format('%I', '{table_name}'))) AS index_size,
+  pg_size_pretty(pg_total_relation_size(format('%I', '{table_name}'))) AS total_size
+FROM 
+  pg_catalog.pg_tables 
+WHERE 
+  tablename = '{table_name}'
 LIMIT 1`,
     category: 'Performance',
     database_type: 'postgres',
@@ -148,7 +125,7 @@ LIMIT 1`,
     dbConfig: {
       type: 'postgres',
       url: '',
-      tableName: '' // Will be filled by user
+      tableName: '{table_name}' // Will be filled by user
     }
   },
   {
@@ -156,31 +133,21 @@ LIMIT 1`,
     name: 'Table Indexes',
     description: 'View all indexes on a table',
     query: `SELECT
-  i.relname AS index_name,
-  a.attname AS column_name,
-  ix.indisunique AS is_unique,
-  ix.indisprimary AS is_primary
-FROM
-  pg_class t,
-  pg_class i,
-  pg_index ix,
-  pg_attribute a
-WHERE
-  t.oid = ix.indrelid
-  AND i.oid = ix.indexrelid
-  AND a.attrelid = t.oid
-  AND a.attnum = ANY(ix.indkey)
-  AND t.relkind = 'r'
-  AND t.relname = '{table_name}'
+  indexname AS index_name,
+  indexdef AS index_definition 
+FROM 
+  pg_indexes
+WHERE 
+  tablename = '{table_name}'
 ORDER BY
-  i.relname, a.attnum`,
+  indexname`,
     category: 'Performance',
     database_type: 'postgres',
     is_public: true,
     dbConfig: {
       type: 'postgres',
       url: '',
-      tableName: '' // Will be filled by user
+      tableName: '{table_name}' // Will be filled by user
     }
   },
   {
