@@ -113,9 +113,27 @@ class Api extends APIClient {
 
   // Query-related endpoints
   async executeQuery(query, dbConfig) {
+    // Special handling for PostgreSQL with {table_name} placeholders
+    let processedQuery = query;
+    
+    if (dbConfig.type === 'postgres' && query.includes('{table_name}')) {
+      if (!dbConfig.tableName) {
+        throw new Error('Table name is required when using {table_name} placeholders with PostgreSQL');
+      }
+      
+      // Replace placeholders on the client side for PostgreSQL
+      // This ensures the server receives valid SQL directly
+      const escapedTableName = dbConfig.tableName.replace(/"/g, '""');
+      processedQuery = query.replace(/{table_name}/g, `"${escapedTableName}"`);
+      console.log('Processed PostgreSQL query:', processedQuery);
+    }
+    
     return this.request('/api/queries/execute', {
       method: 'POST',
-      body: JSON.stringify({ query, dbConfig })
+      body: JSON.stringify({ 
+        query: processedQuery, 
+        dbConfig 
+      })
     });
   }
 

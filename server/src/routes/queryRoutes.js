@@ -16,13 +16,18 @@ const validateQueryRequest = (req, res, next) => {
     return res.status(400).json({ error: 'Database configuration is required' });
   }
 
-  const { type, url } = dbConfig;
+  const { type, url, tableName } = dbConfig;
   if (!type || !url) {
     return res.status(400).json({ error: 'Database type and URL are required' });
   }
 
   if (!['supabase', 'mongodb', 'mysql', 'postgres'].includes(type)) {
     return res.status(400).json({ error: 'Unsupported database type' });
+  }
+
+  // Validate tableName is provided when using placeholders in query
+  if (query.includes('{table_name}') && !tableName) {
+    return res.status(400).json({ error: 'Table name is required when using {table_name} placeholder' });
   }
 
   next();

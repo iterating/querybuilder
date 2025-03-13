@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import CodeEditor from '@uiw/react-textarea-code-editor';
 import { DatabaseConfig } from './DatabaseConfig';
 import { DataVisualizer } from './DataVisualizer';
@@ -25,6 +25,23 @@ export function QueryBuilder() {
   const [templateDialogMode, setTemplateDialogMode] = useState('edit');
   const [showHistory, setShowHistory] = useState(false);
   
+  // Load database configuration from session storage on component mount
+  useEffect(() => {
+    const savedDbConfig = sessionStorage.getItem('dbConfig');
+    if (savedDbConfig) {
+      try {
+        const parsedConfig = JSON.parse(savedDbConfig);
+        setDbConfig(parsedConfig);
+      } catch (error) {
+        console.error('Failed to parse saved database configuration:', error);
+      }
+    }
+  }, []);
+
+  // Save database configuration to session storage whenever it changes
+  useEffect(() => {
+    sessionStorage.setItem('dbConfig', JSON.stringify(dbConfig));
+  }, [dbConfig]);
 
   const handleQuerySubmit = async () => {
     setLoading(true);
@@ -34,8 +51,16 @@ export function QueryBuilder() {
       console.log('Testing API connection...');
       await api.testConnection();
 
-      console.log('Executing query...');
-      const { data } = await api.executeQuery(query, dbConfig);
+      // Make sure dbConfig has tableName if needed
+      const configToSend = { ...dbConfig };
+      
+      // If query contains {table_name} but no tableName is set, show error
+      if (query.includes('{table_name}') && !configToSend.tableName) {
+        throw new Error('Table name is required when using {table_name} placeholders');
+      }
+
+      console.log('Executing query with config:', configToSend);
+      const { data } = await api.executeQuery(query, configToSend);
       setResults(data);
     } catch (error) {
       console.error('Query error:', error);
@@ -52,8 +77,15 @@ export function QueryBuilder() {
       ? JSON.stringify(template.query, null, 2) 
       : template.query;
     setQuery(queryString);
+    
+    // Only update the database type from the template
+    // while preserving the existing URL and tableName
     if (template.dbConfig) {
-      setDbConfig(template.dbConfig);
+      setDbConfig(prevConfig => ({
+        ...prevConfig,
+        // Only update the type, preserve url and tableName
+        type: template.dbConfig.type,
+      }));
     }
   };
 

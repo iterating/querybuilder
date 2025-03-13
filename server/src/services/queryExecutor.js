@@ -131,20 +131,75 @@ class QueryExecutor {
     }
   }
 
-  async executeMySQLQuery(client, query) {
+  async executeMySQLQuery(client, query, tableName) {
     const [rows] = await client.execute(query);
     return rows;
   }
 
-  async executePostgresQuery(client, query) {
-    const result = await client.query(query);
-    return result.rows;
+  async executePostgresQuery(client, query, tableName) {
+    try {
+      // Handle the query differently based on its content
+      if (query.includes('{table_name}')) {
+        if (!tableName) {
+          throw new Error('Table name is required when using {table_name} placeholder in PostgreSQL queries');
+        }
+        
+        // For PostgreSQL, we can't use {table_name} syntax directly
+        // We need to safely substitute the table name with proper quoting
+        const quotedTableName = `"${tableName.replace(/"/g, '""')}"`;
+        
+        // Replace the table name placeholder
+        const modifiedQuery = query.replace(/{table_name}/g, quotedTableName);
+        
+        logger.info('Executing PostgreSQL query with table substitution:', {
+          modifiedQuery,
+          tableName
+        });
+        
+        // Execute the modified query
+        const result = await client.query(modifiedQuery);
+        return result.rows;
+      } else if (tableName && query.toLowerCase().includes('table_name')) {
+        // Handle cases where the query contains the literal "table_name" instead of placeholder
+        const quotedTableName = `"${tableName.replace(/"/g, '""')}"`;
+        const modifiedQuery = query.replace(/table_name/g, quotedTableName);
+        
+        logger.info('Executing PostgreSQL query with literal table_name substitution:', {
+          modifiedQuery,
+          tableName
+        });
+        
+        const result = await client.query(modifiedQuery);
+        return result.rows;
+      } else {
+        // No special handling needed, execute as-is
+        const result = await client.query(query);
+        return result.rows;
+      }
+    } catch (error) {
+      // Enhanced error logging to help diagnose issues
+      logger.error('PostgreSQL query execution error:', {
+        errorMessage: error.message,
+        errorCode: error.code,
+        sqlState: error.sqlState,
+        position: error.position,
+        query,
+        tableName
+      });
+      throw error;
+    }
   }
 
   async executeQuery(dbConfig, query) {
     const { type, url, apiKey, tableName } = dbConfig;
 
     try {
+      logger.info('Executing query for database type:', {
+        type,
+        hasTableName: !!tableName,
+        queryPreview: query.substring(0, 100) + (query.length > 100 ? '...' : '')
+      });
+
       switch (type) {
         case 'supabase': {
           const client = dbService.getSupabaseClient(url, apiKey);
@@ -158,12 +213,12 @@ class QueryExecutor {
 
         case 'mysql': {
           const client = await dbService.getMySQLClient(url);
-          return await this.executeMySQLQuery(client, query);
+          return await this.executeMySQLQuery(client, query, tableName);
         }
 
         case 'postgres': {
           const client = await dbService.getPostgresClient(url);
-          return await this.executePostgresQuery(client, query);
+          return await this.executePostgresQuery(client, query, tableName);
         }
 
         default:

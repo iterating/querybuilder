@@ -76,12 +76,30 @@ class DatabaseService {
     const cacheKey = `postgres:${url}`;
     if (!this.clients.has(cacheKey)) {
       logger.info(`Creating new PostgreSQL connection: ${url}`);
-      const client = new pg.Client(url);
-      await client.connect();
-      this.clients.set(cacheKey, {
-        client,
-        timestamp: Date.now()
-      });
+      try {
+        const client = new pg.Client({
+          connectionString: url,
+          connectionTimeoutMillis: 10000,
+          statement_timeout: 30000
+        });
+        
+        await client.connect();
+        
+        await client.query('SELECT 1 as connected');
+        logger.info('PostgreSQL connection established successfully');
+        
+        this.clients.set(cacheKey, {
+          client,
+          timestamp: Date.now()
+        });
+      } catch (error) {
+        logger.error('Failed to create PostgreSQL connection:', {
+          error: error.message,
+          stack: error.stack,
+          url: url.replace(/:[^:@]+@/, ':***@')
+        });
+        throw new Error(`Failed to connect to PostgreSQL: ${error.message}`);
+      }
     }
     this.clients.get(cacheKey).timestamp = Date.now();
     return this.clients.get(cacheKey).client;
