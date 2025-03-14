@@ -1,6 +1,6 @@
 # Data Analytics Sandbox
 
-A secure and scalable platform that enables data analysts and developers to execute custom queries and build analytics tools.
+Platform that enables data analysts and developers to execute custom queries and build analytics tools.
 
 ## Why Use This App?
 
@@ -179,4 +179,5 @@ GET `/api/data/schemas` - Get database schema information
 
 
 ## Screenshot
-![](https://raw.githubusercontent.com/iterating/querybuilder/refs/heads/main/public/portfolio.querybuilder.screenshot.png)
+![](https://raw.githubusercontent.com/iterating/querybuilder/refs/heads/main/public/portfolio.querybuilder.screenshot.1.png)
+![](https://raw.githubusercontent.com/iterating/querybuilder/refs/heads/main/public/portfolio.querybuilder.screenshot.2.png)
