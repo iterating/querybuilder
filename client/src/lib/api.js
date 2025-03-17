@@ -131,9 +131,16 @@ class Api extends APIClient {
       console.log('PostgreSQL query processed safely:', processedQuery);
     }
     
+    // Extract readOnly flag from dbConfig and include it in the request
+    const { readOnly, ...dbConfigWithoutReadOnly } = dbConfig;
+    
     return this.request('/api/queries/execute', {
       method: 'POST',
-      body: JSON.stringify({ query: processedQuery, dbConfig })
+      body: JSON.stringify({ 
+        query: processedQuery, 
+        dbConfig: dbConfigWithoutReadOnly,
+        readOnly: readOnly !== undefined ? readOnly : true // Default to true if not specified
+      })
     });
   }
 
