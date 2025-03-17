@@ -24,6 +24,7 @@ export function QueryBuilder() {
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [templateDialogMode, setTemplateDialogMode] = useState('edit');
   const [showHistory, setShowHistory] = useState(false);
+  const [readOnly, setReadOnly] = useState(true);
   
   // Load database configuration from session storage on component mount
   useEffect(() => {
@@ -52,7 +53,7 @@ export function QueryBuilder() {
       await api.testConnection();
 
       // Make sure dbConfig has tableName if needed
-      const configToSend = { ...dbConfig };
+      const configToSend = { ...dbConfig, readOnly };
       
       // If query contains {table_name} but no tableName is set, show error
       if (query.includes('{table_name}') && !configToSend.tableName) {
@@ -174,6 +175,18 @@ export function QueryBuilder() {
                   className="focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
                 <div className="absolute bottom-4 right-4 flex space-x-2">
+                  <div className="flex items-center mr-2 bg-zinc-900 rounded px-2 py-1">
+                    <input
+                      type="checkbox"
+                      id="read-only-toggle"
+                      checked={readOnly}
+                      onChange={(e) => setReadOnly(e.target.checked)}
+                      className="mr-2 h-4 w-4 rounded border-zinc-600 text-purple-500 focus:ring-purple-500"
+                    />
+                    <label htmlFor="read-only-toggle" className="text-sm text-zinc-400">
+                      Read-only
+                    </label>
+                  </div>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -305,24 +318,6 @@ export function QueryBuilder() {
         mode={templateDialogMode}
       />
 
-      <div className="text-center mt-8 pb-4">
-        <a 
-          href="https://github.com/iterating" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-zinc-400 hover:text-zinc-300 text-sm"
-        >
-          Designed and Built by Jonathan Young (iterating) |
-        </a> 
-        <a 
-          href="https://tableaucleaner.vercel.app"
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-zinc-400 hover:text-zinc-300 text-sm mr-2"
-        >
-          | Tableau Data Cleaner App
-        </a>
-      </div>
     </div>
 
   );
