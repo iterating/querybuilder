@@ -6,7 +6,7 @@ const router = express.Router();
 
 // Request validation middleware
 const validateQueryRequest = (req, res, next) => {
-  const { query, dbConfig } = req.body;
+  const { query, dbConfig, readOnly } = req.body;
 
   if (!query) {
     return res.status(400).json({ error: 'Query is required' });
@@ -30,19 +30,27 @@ const validateQueryRequest = (req, res, next) => {
     return res.status(400).json({ error: 'Table name is required when using {table_name} placeholder' });
   }
 
+  // If not in read-only mode, check if the query is a modification query
+  if (readOnly === false) {
+    // Allow the query to proceed even if it's a modification query
+    logger.info('Read-only mode disabled, allowing modification queries');
+  }
+
   next();
 };
 
 // Execute query endpoint
 router.post('/execute', validateQueryRequest, async (req, res) => {
   try {
+    const { query, dbConfig, readOnly = true } = req.body;
+    
     logger.info('Executing query with config:', {
-      dbType: req.body.dbConfig.type,
-      query: req.body.query
+      dbType: dbConfig.type,
+      query: query,
+      readOnly: readOnly
     });
 
-    const { query, dbConfig } = req.body;
-    const data = await queryExecutor.executeQuery(dbConfig, query);
+    const data = await queryExecutor.executeQuery(dbConfig, query, readOnly);
     
     logger.info('Query executed successfully');
     res.json({ data });
@@ -51,7 +59,8 @@ router.post('/execute', validateQueryRequest, async (req, res) => {
       error: error.message,
       stack: error.stack,
       dbType: req.body?.dbConfig?.type,
-      query: req.body?.query
+      query: req.body?.query,
+      readOnly: req.body?.readOnly
     });
     
     res.status(500).json({ 

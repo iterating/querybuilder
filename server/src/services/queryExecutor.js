@@ -2,8 +2,23 @@ import { logger } from '../utils/logger.js';
 import { dbService } from './database.js';
 
 class QueryExecutor {
-  async executeSupabaseQuery(client, query, tableName) {
+  async executeSupabaseQuery(client, query, tableName, readOnly = true) {
     try {
+      // Check if the query is a modification query when in read-only mode
+      if (readOnly) {
+        const normalizedQuery = query.trim().toLowerCase();
+        if (
+          normalizedQuery.startsWith('insert') ||
+          normalizedQuery.startsWith('update') ||
+          normalizedQuery.startsWith('delete') ||
+          normalizedQuery.startsWith('drop') ||
+          normalizedQuery.startsWith('alter') ||
+          normalizedQuery.startsWith('create')
+        ) {
+          throw new Error('Modification queries are not allowed in read-only mode. Disable read-only mode to execute this query.');
+        }
+      }
+
       if (query.trim().toLowerCase().startsWith('select')) {
         // For SELECT queries, use Supabase's query builder
         const { data, error } = await client
@@ -29,20 +44,39 @@ class QueryExecutor {
         error: error.message,
         stack: error.stack,
         query,
-        tableName
+        tableName,
+        readOnly
       });
       throw error;
     }
   }
 
-  async executeMongoQuery(client, query, tableName) {
+  async executeMongoQuery(client, query, tableName, readOnly = true) {
     if (!tableName) {
       throw new Error('Collection name is required for MongoDB queries');
     }
 
+    // Check if we're in read-only mode and the query contains modification operations
+    if (readOnly) {
+      const queryStr = typeof query === 'string' ? query : JSON.stringify(query);
+      if (
+        queryStr.includes('insertOne') ||
+        queryStr.includes('insertMany') ||
+        queryStr.includes('updateOne') ||
+        queryStr.includes('updateMany') ||
+        queryStr.includes('deleteOne') ||
+        queryStr.includes('deleteMany') ||
+        queryStr.includes('replaceOne') ||
+        queryStr.includes('drop')
+      ) {
+        throw new Error('Modification operations are not allowed in read-only mode. Disable read-only mode to execute this query.');
+      }
+    }
+
     logger.info('Executing MongoDB query:', {
       tableName,
-      query: typeof query === 'string' ? query : JSON.stringify(query)
+      query: typeof query === 'string' ? query : JSON.stringify(query),
+      readOnly
     });
 
     const db = client.db();
@@ -125,19 +159,50 @@ class QueryExecutor {
         error: error.message,
         stack: error.stack,
         query,
-        tableName
+        tableName,
+        readOnly
       });
       throw error;
     }
   }
 
-  async executeMySQLQuery(client, query, tableName) {
+  async executeMySQLQuery(client, query, tableName, readOnly = true) {
+    // Check if the query is a modification query when in read-only mode
+    if (readOnly) {
+      const normalizedQuery = query.trim().toLowerCase();
+      if (
+        normalizedQuery.startsWith('insert') ||
+        normalizedQuery.startsWith('update') ||
+        normalizedQuery.startsWith('delete') ||
+        normalizedQuery.startsWith('drop') ||
+        normalizedQuery.startsWith('alter') ||
+        normalizedQuery.startsWith('create')
+      ) {
+        throw new Error('Modification queries are not allowed in read-only mode. Disable read-only mode to execute this query.');
+      }
+    }
+
     const [rows] = await client.execute(query);
     return rows;
   }
 
-  async executePostgresQuery(client, query, tableName) {
+  async executePostgresQuery(client, query, tableName, readOnly = true) {
     try {
+      // Check if the query is a modification query when in read-only mode
+      if (readOnly) {
+        const normalizedQuery = query.trim().toLowerCase();
+        if (
+          normalizedQuery.startsWith('insert') ||
+          normalizedQuery.startsWith('update') ||
+          normalizedQuery.startsWith('delete') ||
+          normalizedQuery.startsWith('drop') ||
+          normalizedQuery.startsWith('alter') ||
+          normalizedQuery.startsWith('create')
+        ) {
+          throw new Error('Modification queries are not allowed in read-only mode. Disable read-only mode to execute this query.');
+        }
+      }
+
       // Handle the query differently based on its content
       if (query.includes('{table_name}')) {
         if (!tableName) {
@@ -153,7 +218,8 @@ class QueryExecutor {
         
         logger.info('Executing PostgreSQL query with table substitution:', {
           modifiedQuery,
-          tableName
+          tableName,
+          readOnly
         });
         
         // Execute the modified query
@@ -166,7 +232,8 @@ class QueryExecutor {
         
         logger.info('Executing PostgreSQL query with literal table_name substitution:', {
           modifiedQuery,
-          tableName
+          tableName,
+          readOnly
         });
         
         const result = await client.query(modifiedQuery);
@@ -184,41 +251,43 @@ class QueryExecutor {
         sqlState: error.sqlState,
         position: error.position,
         query,
-        tableName
+        tableName,
+        readOnly
       });
       throw error;
     }
   }
 
-  async executeQuery(dbConfig, query) {
+  async executeQuery(dbConfig, query, readOnly = true) {
     const { type, url, apiKey, tableName } = dbConfig;
 
     try {
       logger.info('Executing query for database type:', {
         type,
         hasTableName: !!tableName,
-        queryPreview: query.substring(0, 100) + (query.length > 100 ? '...' : '')
+        queryPreview: query.substring(0, 100) + (query.length > 100 ? '...' : ''),
+        readOnly
       });
 
       switch (type) {
         case 'supabase': {
           const client = dbService.getSupabaseClient(url, apiKey);
-          return await this.executeSupabaseQuery(client, query, tableName);
+          return await this.executeSupabaseQuery(client, query, tableName, readOnly);
         }
 
         case 'mongodb': {
           const client = await dbService.getMongoClient(url);
-          return await this.executeMongoQuery(client, query, tableName);
+          return await this.executeMongoQuery(client, query, tableName, readOnly);
         }
 
         case 'mysql': {
           const client = await dbService.getMySQLClient(url);
-          return await this.executeMySQLQuery(client, query, tableName);
+          return await this.executeMySQLQuery(client, query, tableName, readOnly);
         }
 
         case 'postgres': {
           const client = await dbService.getPostgresClient(url);
-          return await this.executePostgresQuery(client, query, tableName);
+          return await this.executePostgresQuery(client, query, tableName, readOnly);
         }
 
         default:
