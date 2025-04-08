@@ -320,7 +320,7 @@ export function QueryBuilder() {
 
       <div className="text-center mt-8 pb-4">
         <a 
-          href="https://github.com/iterating" 
+          href="https://iterating.github.io" 
           target="_blank" 
           rel="noopener noreferrer"
           className="text-zinc-400 hover:text-zinc-300 text-sm"
